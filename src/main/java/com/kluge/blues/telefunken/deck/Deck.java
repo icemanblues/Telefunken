@@ -28,8 +28,23 @@ public class Deck {
 		this.next = 0;
 	}
 
+	/**
+	 * @return a deck containing 52 cards
+	 */
 	public static Deck standardDeck() {
 		return new Deck( make52());
+	}
+
+	/**
+	 * @param numDecks the number of decks to be created
+	 * @return creates multiple decks and combines them into one
+	 */
+	public static Deck standardDeck(final int numDecks) {
+		final List<Card> cards = Lists.newArrayListWithExpectedSize(numDecks * Card.CARDS_IN_DECK);
+		for(int i=0; i< numDecks; i++) {
+			cards.addAll(make52());
+		}
+		return new Deck(cards);
 	}
 
 	private static List<Card> make52() {
@@ -74,7 +89,8 @@ public class Deck {
 	}
 
 	public static void main(String[] args) {
-		Deck deck = Deck.standardDeck();
+		Deck deck = Deck.standardDeck(2);
+
 		int size = deck.size();
 		System.out.println("This deck has " + size + " cards");
 
