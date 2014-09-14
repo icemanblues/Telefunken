@@ -14,16 +14,14 @@ import com.google.common.collect.Maps;
  *
  * @author <a href="roland.kluge@gmail.com">roland</a>
  */
-public final class Card {
-	public static final int CARDS_IN_DECK = 52;
-
-	private static final Map<String, Card> INSTANCES = Maps.newHashMapWithExpectedSize(CARDS_IN_DECK);
+public final class StandardCard implements ICard {
+	private static final Map<String, StandardCard> INSTANCES = Maps.newHashMapWithExpectedSize(Deck.STANDARD_DECK);
 
 	private final Rank rank;
 	private final Suit suit;
 	private final String displayName;
 
-	private Card(Rank rank, Suit suit) {
+	private StandardCard(Rank rank, Suit suit) {
 		this.rank = rank;
 		this.suit = suit;
 		this.displayName = makeDisplayName(rank, suit);
@@ -33,10 +31,10 @@ public final class Card {
 		return rank.getDisplayName() + suit.getDisplayName();
 	}
 
-	public static Card of(Rank rank, Suit suit) {
+	public static StandardCard of(Rank rank, Suit suit) {
 		final String displayName = makeDisplayName(rank, suit);
 		if(!INSTANCES.containsKey(displayName)) {
-			final Card c = new Card(rank, suit);
+			final StandardCard c = new StandardCard(rank, suit);
 			INSTANCES.put(displayName, c);
 		}
 		return INSTANCES.get(displayName);
@@ -48,6 +46,11 @@ public final class Card {
 
 	public Suit getSuit() {
 		return suit;
+	}
+
+	@Override
+	public <T> T accept(ICardVisitor<T> cardVisitor) {
+		return cardVisitor.visit(this);
 	}
 
 	@Override
@@ -67,7 +70,7 @@ public final class Card {
 			return false;
 		if (getClass() != obj.getClass())
 			return false;
-		Card other = (Card) obj;
+		StandardCard other = (StandardCard) obj;
 		if (rank != other.rank)
 			return false;
 		if (suit != other.suit)

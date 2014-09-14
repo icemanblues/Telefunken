@@ -6,7 +6,10 @@ package com.kluge.blues.telefunken.deck;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 
 /**
@@ -16,15 +19,20 @@ import com.google.common.collect.Lists;
  * A Deck is a Stack, so we'll model it with a List
  * We don't want to actually pop it- otherwise shuffling will be more difficult
  *
+ * This class is not thread-safe
+ *
  * @author <a href="roland.kluge@gmail.com">roland</a>
  */
 public class Deck {
-	private List<Card> deck;
+	public static final int STANDARD_DECK = 52;
+	public static final int STANDARD_DECK_WITH_JOKERS = 54;
+
+	private final List<ICard> deck;
 	private int next = 0;
 
-	private Deck(List<Card> deck) {
+	private Deck(List<ICard> deck) {
 		super();
-		this.deck = deck;
+		this.deck = Lists.newArrayList(deck);
 		this.next = 0;
 	}
 
@@ -35,27 +43,49 @@ public class Deck {
 		return new Deck( make52());
 	}
 
+	public static Deck standardDeckWithJokers() {
+		return new Deck( make54());
+	}
+
 	/**
 	 * @param numDecks the number of decks to be created
 	 * @return creates multiple decks and combines them into one
 	 */
 	public static Deck standardDeck(final int numDecks) {
-		final List<Card> cards = Lists.newArrayListWithExpectedSize(numDecks * Card.CARDS_IN_DECK);
+		return multiDeck(numDecks, Deck::make52);
+	}
+
+	public static Deck standardDeckWithJokers(final int numDecks) {
+		return multiDeck(numDecks, Deck::make54);
+	}
+
+	private static Deck multiDeck(final int numDecks, Supplier<List<ICard>> deckGenerator) {
+		final List<ICard> cards = Lists.newLinkedList();
 		for(int i=0; i< numDecks; i++) {
-			cards.addAll(make52());
+			cards.addAll(deckGenerator.get());
 		}
 		return new Deck(cards);
 	}
 
-	private static List<Card> make52() {
-		List<Card> list = Lists.newArrayListWithExpectedSize(Card.CARDS_IN_DECK);
+	private static List<ICard> make52() {
+		List<ICard> list = Lists.newArrayListWithCapacity(Deck.STANDARD_DECK);
+		fill52(list);
+		return list;
+	}
 
-		Arrays.asList(Rank.values()).forEach(rank -> {
-			Arrays.asList(Suit.values()).forEach(suit -> {
-				list.add(Card.of(rank, suit));
+	private static void fill52(final List<ICard> list) {
+		Arrays.stream(Rank.values()).forEach(rank -> {
+			Arrays.stream(Suit.values()).forEach(suit -> {
+				list.add(StandardCard.of(rank, suit));
 			});
 		});
+	}
 
+	private static List<ICard> make54() {
+		List<ICard> list = Lists.newArrayListWithCapacity(STANDARD_DECK_WITH_JOKERS);
+		fill52(list);
+		list.add(JokerCard.JOKER);
+		list.add(JokerCard.JOKER);
 		return list;
 	}
 
@@ -67,7 +97,7 @@ public class Deck {
 		return deck.size();
 	}
 
-	public Card next() {
+	public ICard next() {
 		return deck.get(next++);
 	}
 
@@ -81,15 +111,26 @@ public class Deck {
 			final int b = random.nextInt(size);
 
 			//swap a and b
-			final Card temp = deck.get(a);
+			final ICard temp = deck.get(a);
 			deck.set(a, deck.get(b));
 			deck.set(b, temp);
 		}
 		next = 0;
 	}
 
+	@FunctionalInterface
+	private interface DeckGenerator {
+		/**
+		 * This is a function that generates a list of cards given zero inputs
+		 * I would have preferred to use the Function interface, but I don't know how to
+		 * make apply accept zero arguments
+		 * @return the cards to be used for 1 deck
+		 */
+		public List<ICard> generateCards();
+	}
+
 	public static void main(String[] args) {
-		Deck deck = Deck.standardDeck(2);
+		Deck deck = Deck.standardDeckWithJokers(2);
 
 		int size = deck.size();
 		System.out.println("This deck has " + size + " cards");
