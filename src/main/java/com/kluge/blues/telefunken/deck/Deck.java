@@ -23,7 +23,7 @@ import com.google.common.collect.Lists;
  *
  * @author <a href="roland.kluge@gmail.com">roland</a>
  */
-public class Deck {
+public final class Deck {
 	public static final int STANDARD_DECK = 52;
 	public static final int STANDARD_DECK_WITH_JOKERS = 54;
 
@@ -116,17 +116,6 @@ public class Deck {
 			deck.set(b, temp);
 		}
 		next = 0;
-	}
-
-	@FunctionalInterface
-	private interface DeckGenerator {
-		/**
-		 * This is a function that generates a list of cards given zero inputs
-		 * I would have preferred to use the Function interface, but I don't know how to
-		 * make apply accept zero arguments
-		 * @return the cards to be used for 1 deck
-		 */
-		public List<ICard> generateCards();
 	}
 
 	public static void main(String[] args) {
