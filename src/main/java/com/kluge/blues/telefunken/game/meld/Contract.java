@@ -3,7 +3,6 @@
  */
 package com.kluge.blues.telefunken.game.meld;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -32,9 +31,6 @@ public class Contract {
 			return false;
 		}
 
-		// I hate to use instanceof, but I don't want to create a MeldVisitor just yet
-		// and I am not a fan of having isSet, isRun on the interface
-		// nor returning the an enum called MeldType
-		return melds.stream().allMatch(m -> m instanceof SetMeld && m.size() == sizeOfSets);
+		return melds.stream().allMatch(m -> MeldType.SET.equals(m.getMeldType()) && m.size() == sizeOfSets);
 	}
 }
