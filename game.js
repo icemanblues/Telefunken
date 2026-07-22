@@ -738,7 +738,7 @@ export class Game {
           if (allInHand && m.cardIds.length >= 3) {
             try {
               this.playMeld(playerId, m.cardIds, m.type);
-            } catch (_) { /* ignore */ }
+            } catch { /* ignore */ }
           }
         }
       }
@@ -803,12 +803,6 @@ if (typeof window !== 'undefined') {
 
   // -- Selection mode tracking --
   let discardMode = false;
-  function getSelectedIds() {
-    return [...document.querySelectorAll('#human-hand .card.selected')].map(el => el.dataset.cardId);
-  }
-  function clearSelections() {
-    document.querySelectorAll('#human-hand .card.selected').forEach(el => el.classList.remove('selected'));
-  }
 
   // Game instance (hoisted for initUI + cardElement closure)
   let game = null;
@@ -1188,6 +1182,8 @@ if (typeof window !== 'undefined') {
     }
 
     // Now wire all game button listeners inside initUI
+    const defaultName = (input?.value?.trim()) || 'Player 1';
+    game = new Game(defaultName);
     initUI();
   }
 

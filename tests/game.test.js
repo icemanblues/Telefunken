@@ -67,7 +67,7 @@ describe('Deck', () => {
 
   test('draw returns null when empty', () => {
     const deck = new Deck();
-    while (deck.draw() !== null) {}
+    while (deck.draw() !== null) { /* keep drawing until exhaustion */ }
     expect(deck.remaining).toBe(0);
     expect(deck.draw()).toBe(null);
   });
@@ -433,7 +433,6 @@ describe('Game', () => {
     // Buy off turn as player 0 when it's not their turn
     const human = g.players[0];
     if (g.discardPile.length > 0 && human.chips > 0 && !human.hasMelded) {
-      const beforeChips = human.chips;
       g.buyDiscard(g.currentPlayerIndex); // on own turn, in draw phase
     }
     expect(true).toBe(true);
@@ -680,7 +679,7 @@ describe('Game', () => {
     // Each player's score is chipsRemaining * (-10), and score was 0 → now negative multiple of 10
     for (const p of g.players) {
       const remainder = p.score % 10;
-      expect(remainder === 0 || remainder === -0).toBe(true);
+      expect(Math.abs(remainder) === 0).toBe(true);
     }
   });
 
@@ -1278,8 +1277,6 @@ describe('Game Over / Leaderboard', () => {
     }
     g.endGame();
 
-    const winnerBefore = g.getWinner();
-
     g.reset();
     expect(g.state).toBe('init');
     expect(g.dealNumber).toBe(1);
@@ -1456,13 +1453,11 @@ describe('Stock Exhaustion During Gameplay', () => {
     g.discardCard(dealerId, g.players[dealerId].hand[0]);
 
     // Now drain remaining stock cards into a pile to simulate exhaustion
-    let exhaustedCount = 0;
     while (g.deck.remaining > 0) {
       const card = g.deck.draw();
       if (!card) break;
       // Simulate discarding all drawn cards back into the discard pile
       g.discardPile.push(card.id);
-      exhaustedCount++;
     }
 
     // With stock empty, next draw should trigger forceEndDeal
