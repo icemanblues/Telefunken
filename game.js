@@ -776,7 +776,7 @@ export class Game {
 // --- Browser UI Init (guarded for Jest compatibility) ---
 
 if (typeof window !== 'undefined') {
-  const suitSymbol = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660', joker: '\U0001f0CF' };
+  const suitSymbol = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660', joker: String.fromCodePoint(0x1F0CF) };
   const rankLabel = { 2:'2',3:'3',4:'4',5:'5',6:'6',7:'7',8:'8',9:'9',10:'10',11:'J',12:'Q',13:'K',14:'A', joker:'' };
 
   // -- Toast system --
@@ -996,11 +996,11 @@ if (typeof window !== 'undefined') {
       td(tr, String(entry.rank));
       td(tr, entry.player.name);
 
-      // Show raw penalty score and chip bonus separately
+      // Show raw penalty score and chip bonus as negative deduction
       td(tr, `${entry.penaltyScore}`);
-      td(tr, `+${entry.chipBonus}`);
+      td(tr, `-${entry.chipBonus}`);
 
-      const finalScore = entry.penaltyScore + entry.chipBonus;
+      const finalScore = entry.penaltyScore - entry.chipBonus;
       td(tr, `${finalScore}`);
 
       tbody.appendChild(tr);

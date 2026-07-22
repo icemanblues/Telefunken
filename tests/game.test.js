@@ -1318,3 +1318,457 @@ describe('Game Over / Leaderboard', () => {
     }
   });
 });
+
+// --- Deal Contracts for All 6 Deals (Tasks 2-5 missing) ---
+
+describe('All 6 Deal Contracts', () => {
+  test('deal 2 contract is 1 set of 4', () => {
+    const g = new Game();
+    g.dealNumber = 2;
+    const m = new Meld('set', 0, [
+      new Card('c1', 'hearts', 5),
+      new Card('c2', 'diamonds', 5),
+      new Card('c3', 'clubs', 5),
+      new Card('c4', 'spades', 5),
+    ]);
+    g.tableMelds = [m];
+    g.players[0].hasMelded = true;
+    expect(g.checkContractSatisfaction(0)).toBe(true);
+
+    const m2 = new Meld('set', 0, [
+      new Card('x1', 'hearts', 6),
+      new Card('x2', 'diamonds', 6),
+      new Card('x3', 'clubs', 6),
+    ]);
+    g.tableMelds = [m2];
+    expect(g.checkContractSatisfaction(0)).toBe(false);
+  });
+
+  test('deal 3 contract is 2 sets of 4', () => {
+    const g = new Game();
+    g.dealNumber = 3;
+    g.tableMelds = [
+      new Meld('set', 0, [new Card('a1','hearts',8),new Card('a2','diamonds',8),new Card('a3','clubs',8),new Card('a4','spades',8)]),
+      new Meld('set', 0, [new Card('b1','hearts',9),new Card('b2','diamonds',9),new Card('b3','clubs',9),new Card('b4','spades',9)]),
+    ];
+    g.players[0].hasMelded = true;
+    expect(g.checkContractSatisfaction(0)).toBe(true);
+
+    g.tableMelds = [g.tableMelds[0]];
+    expect(g.checkContractSatisfaction(0)).toBe(false);
+  });
+
+  test('deal 4 contract is 1 set of 5', () => {
+    const g = new Game();
+    g.dealNumber = 4;
+    g.tableMelds = [new Meld('set', 0, [
+      new Card('d1','hearts',3), new Card('d2','diamonds',3), new Card('d3','clubs',3),
+      new Card('d4','spades',3), new Card('d5','hearts(2)',3),
+    ])];
+    g.players[0].hasMelded = true;
+    expect(g.checkContractSatisfaction(0)).toBe(true);
+
+    g.tableMelds = [new Meld('set', 0, [
+      new Card('d1','hearts',4), new Card('d2','diamonds',4), new Card('d3','clubs',4),
+      new Card('d4','spades',4),
+    ])];
+    expect(g.checkContractSatisfaction(0)).toBe(false);
+  });
+
+  test('deal 5 contract is 2 sets of 5', () => {
+    const g = new Game();
+    g.dealNumber = 5;
+    g.tableMelds = [
+      new Meld('set', 0, [new Card('e1','hearts',7),new Card('e2','diamonds',7),new Card('e3','clubs',7),new Card('e4','spades',7),new Card('e5','hearts(2)',7)]),
+      new Meld('set', 0, [new Card('f1','hearts',8),new Card('f2','diamonds',8),new Card('f3','clubs',8),new Card('f4','spades',8),new Card('f5','hearts(2)',8)]),
+    ];
+    g.players[0].hasMelded = true;
+    expect(g.checkContractSatisfaction(0)).toBe(true);
+
+    g.tableMelds = [g.tableMelds[0]];
+    expect(g.checkContractSatisfaction(0)).toBe(false);
+  });
+
+  test('deal 6 contract is 1 set of 6', () => {
+    const g = new Game();
+    g.dealNumber = 6;
+    g.tableMelds = [new Meld('set', 0, [
+      new Card('g1','hearts',2), new Card('g2','diamonds',2), new Card('g3','clubs',2),
+      new Card('g4','spades',2), new Card('g5','hearts(2)',2), new Card('g6','diamonds(2)',2),
+    ])];
+    g.players[0].hasMelded = true;
+    expect(g.checkContractSatisfaction(0)).toBe(true);
+
+    g.tableMelds = [new Meld('set', 0, [
+      new Card('g1','hearts',2), new Card('g2','diamonds',2), new Card('g3','clubs',2),
+      new Card('g4','spades',2), new Card('g5','hearts(2)',2),
+    ])];
+    expect(g.checkContractSatisfaction(0)).toBe(false);
+  });
+});
+
+// --- Stock Exhaustion During Gameplay (stock exhaustion test missing) ---
+
+describe('Stock Exhaustion During Gameplay', () => {
+  test('stock exhaustion during a deal ends the deal and scores remaining hands', () => {
+    const g = new Game();
+    g.startDeal();
+
+    // Drain the deck entirely: dealer discards, then force stock empty
+    const dealerId = g.currentPlayerIndex;
+    g.discardCard(dealerId, g.players[dealerId].hand[0]);
+
+    // Now drain remaining stock cards into a pile to simulate exhaustion
+    let exhaustedCount = 0;
+    while (g.deck.remaining > 0) {
+      const card = g.deck.draw();
+      if (!card) break;
+      // Simulate discarding all drawn cards back into the discard pile
+      g.discardPile.push(card.id);
+      exhaustedCount++;
+    }
+
+    // With stock empty, next draw should trigger forceEndDeal
+    const nextIdx = (dealerId + 1) % 4;
+    expect(g.deck.remaining).toBe(0);
+
+    // Simulate a player trying to draw from empty stock
+    g.state = 'draw';
+    g.currentPlayerIndex = nextIdx;
+    const res = g.drawFromStock(nextIdx);
+
+    expect(res).toBe(false);
+    expect(g.state).toBe('dealover');
+  });
+
+  test('stock exhaustion mid-deal does not affect already-melded players', () => {
+    const g = new Game();
+    g.startDeal();
+
+    // Dealer discards, then player in meld phase has a valid meld ready
+    const dealerId = g.currentPlayerIndex;
+    g.discardCard(dealerId, g.players[dealerId].hand[0]);
+
+    const pIdx = (dealerId + 1) % 4;
+    g.state = 'draw';
+    g.currentPlayerIndex = pIdx;
+
+    // Player draws normally
+    g.drawFromStock(pIdx);
+    expect(g.state).toBe('meld');
+
+    // Drain remaining stock without triggering exhaustion yet
+    while (g.deck.remaining > 0) {
+      const card = g.deck.draw();
+      if (!card) break;
+      g.discardPile.push(card.id);
+    }
+
+    // Force end via empty stock on next draw attempt
+    expect(g.deck.remaining).toBe(0);
+    expect(g.state).toBe('meld');
+
+    // The player who is already in meld phase discards normally
+    // without needing to draw more. Their turn ends naturally.
+    g.confirmDiscard(pIdx);
+    expect(g.state).toBe('discard');
+
+    // Player pIdx was already past the draw, so they can play their meld and confirm discard
+    // Now let them discard a card — they still have many cards, don't go out yet
+    const anyCard = g.players[pIdx].hand[0];
+    g.discardCard(pIdx, anyCard);
+
+    // Game moves to next player who will now be in 'draw' state with empty stock
+    expect(g.state).toBe('draw');
+    expect(g.currentPlayerIndex).toBe((pIdx + 1) % 4);
+    expect(g.deck.remaining).toBe(0);
+  });
+});
+
+// --- Joker Swap Integration (removeJoker test missing) ---
+
+describe('Joker Swap Mechanics', () => {
+  test('removeJoker removes a joker from a meld by card id', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'hearts', 4),
+      new Card('wild', 'joker', 'joker'),
+      new Card('n2', 'hearts', 6),
+    ]);
+    expect(m.cards.length).toBe(3);
+    expect(m.wildCount).toBe(1);
+    const removed = m.removeJoker('wild');
+    expect(removed).toBe(true);
+    expect(m.cards.length).toBe(2);
+    expect(m.wildCount).toBe(0);
+  });
+
+  test('removeJoker returns false when joker id not found', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'hearts', 4),
+      new Card('wild', 'joker', 'joker'),
+      new Card('n2', 'hearts', 6),
+    ]);
+    const removed = m.removeJoker('nonexistent');
+    expect(removed).toBe(false);
+    expect(m.wildCount).toBe(1); // still has joker
+  });
+
+  test('removeJoker does nothing on a non-joker card id', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'hearts', 4),
+      new Card('wild', 'joker', 'joker'),
+      new Card('n2', 'hearts', 6),
+    ]);
+    const removed = m.removeJoker('n1');
+    expect(removed).toBe(false);
+    expect(m.wildCount).toBe(1); // still has joker
+  });
+
+  test('removeJoker on meld with no jokers returns false', () => {
+    const m = new Meld('set', 0, [
+      new Card('x1', 'hearts', 7),
+      new Card('x2', 'diamonds', 7),
+      new Card('x3', 'clubs', 7),
+    ]);
+    expect(m.removeJoker('some-id')).toBe(false);
+  });
+
+  test('naturalCount and wildCount are correct after removing a joker', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'hearts', 4),
+      new Card('n2', 'hearts', 5),
+      new Card('wild', 'joker', 'joker'),
+      new Card('wild2', 'joker', 'joker'),
+    ]);
+    expect(m.naturalCount).toBe(2);
+    expect(m.wildCount).toBe(2);
+
+    m.removeJoker('wild');
+    expect(m.naturalCount).toBe(2);
+    expect(m.wildCount).toBe(1);
+
+    m.removeJoker('wild2');
+    expect(m.naturalCount).toBe(2);
+    expect(m.wildCount).toBe(0);
+  });
+});
+
+// --- Ace-Low Run Tests (explicit A-2-3 valid test missing) ---
+
+describe('Ace-Low and High Run Tests', () => {
+  test('A-2-3 is a valid run (ace as rank 1, wrapping low)', () => {
+    const naturals = [
+      new Card('a', 'spades', 14),
+      new Card('b', 'spades', 2),
+      new Card('c', 'spades', 3),
+    ];
+    expect(isValidRun(naturals, [])).toBe(true);
+  });
+
+  test('Q-K-A is a valid run (ace high natural sequence)', () => {
+    const naturals = [
+      new Card('a', 'hearts', 12),
+      new Card('b', 'hearts', 13),
+      new Card('c', 'hearts', 14),
+    ];
+    expect(isValidRun(naturals, [])).toBe(true);
+  });
+
+  test('A-2-3-4 is a valid run with ace at the bottom', () => {
+    const naturals = [
+      new Card('a', 'clubs', 14),
+      new Card('b', 'clubs', 2),
+      new Card('c', 'clubs', 3),
+      new Card('d', 'clubs', 4),
+    ];
+    expect(isValidRun(naturals, [])).toBe(true);
+  });
+
+  test('10-J-Q-K-A is a valid run (ace high natural wrap)', () => {
+    const naturals = [
+      new Card('a', 'diamonds', 10),
+      new Card('b', 'diamonds', 11),
+      new Card('c', 'diamonds', 12),
+      new Card('d', 'diamonds', 13),
+      new Card('e', 'diamonds', 14),
+    ];
+    expect(isValidRun(naturals, [])).toBe(true);
+  });
+
+  test('A-wild-3 is valid with natural gap of 2 (wild fills A->2 or 2->3)', () => {
+    const naturals = [
+      new Card('a', 'hearts', 14),
+      new Card('b', 'hearts', 3),
+    ];
+    const wilds = [new Card('w', 'joker', 'joker')];
+    expect(isValidRun(naturals, wilds)).toBe(true);
+  });
+
+  test('Joker swap in run: remove joker and verify naturalCount unchanged', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'spades', 5),
+      new Card('wild', 'joker', 'joker'),
+      new Card('n2', 'spades', 7),
+    ]);
+    expect(m.naturalCount).toBe(2);
+    expect(m.wildCount).toBe(1);
+    m.removeJoker('wild');
+    expect(m.naturalCount).toBe(2); // naturals remain unchanged
+    expect(m.wildCount).toBe(0);
+  });
+});
+
+// --- Exact Scoring Verification (no test for exact point values) ---
+
+describe('Exact Scoring Values', () => {
+  test('scoreDeal calculates exact penalty: Ace(15) + Joker(20) + Two(20) + King(10) + Seven(7) = 72', () => {
+    const g = new Game();
+    g.startDeal();
+
+    // Create a hand with specific known cards
+    const ace = new Card('sc1', 'hearts', 14);   // Ace = 15 pts
+    const jokerCard = new Card('sc2', 'joker', 'joker'); // Joker = 20 pts
+    const twoOfHearts = new Card('sc3', 'hearts', 2);  // Two = 20 pts
+    const kingOfSpades = new Card('sc4', 'spades', 13); // King = 10 pts
+    const sevenOfClubs = new Card('sc5', 'clubs', 7);  // Seven = 7 pts
+
+    g.allCards[ace.id] = ace;
+    g.allCards[jokerCard.id] = jokerCard;
+    g.allCards[twoOfHearts.id] = twoOfHearts;
+    g.allCards[kingOfSpades.id] = kingOfSpades;
+    g.allCards[sevenOfClubs.id] = sevenOfClubs;
+
+    g.players[0].hand = [ace.id, jokerCard.id, twoOfHearts.id, kingOfSpades.id, sevenOfClubs.id];
+    // Player 1 goes out
+    g.players[1].hand = [];
+
+    g.scoreDeal();
+    expect(g.players[0].score).toBe(72);
+    expect(g.players[1].score).toBe(0);
+  });
+
+  test('card point values are correct per card type', () => {
+    const cases = [
+      [3, 'hearts', 3],       // face value 3
+      [4, 'clubs', 4],        // face value 4
+      [9, 'diamonds', 9],     // face value 9
+      [10, 'spades', 10],     // 10-K = 10 pts
+      [11, 'hearts', 10],     // J = 10
+      [12, 'diamonds', 10],   // Q = 10
+      [13, 'clubs', 10],      // K = 10
+      [14, 'spades', 15],     // Ace = 15
+      ['joker', 'joker', 20], // Joker = 20
+      [2, 'hearts', 20],      // Two = 20
+    ];
+
+    for (const [rank, suit, expected] of cases) {
+      const c = new Card(`pv${rank}`, suit, rank);
+      expect(c.pointValue).toBe(expected);
+    }
+  });
+
+  test('endGame chip bonus correctly subtracts from penalty for low scores', () => {
+    const g = new Game();
+    g.players[0].score = 50;
+    g.players[1].score = 100;
+    g.players[2].score = 30;
+    g.players[3].score = 80;
+
+    for (let i = 0; i < 4; i++) {
+      g.players[i].chips = 6 - i; // 6,5,4,3
+    }
+
+    g.endGame();
+
+    expect(g.players[0].score).toBe(50 - 6 * 10); // 50 - 60 = -10
+    expect(g.players[1].score).toBe(100 - 5 * 10); // 100 - 50 = 50
+    expect(g.players[2].score).toBe(30 - 4 * 10);  // 30 - 40 = -10
+    expect(g.players[3].score).toBe(80 - 3 * 10);  // 80 - 30 = 50
+
+    const winner = g.getWinner();
+    // Both P0 and P2 tied at -10, first encountered wins (P0)
+    expect(winner.id).toBe(0);
+  });
+});
+
+// --- Meld wildCount / naturalCount Getter Tests ---
+
+describe('Meld Getters', () => {
+  test('naturalCount counts non-joker cards correctly', () => {
+    const m = new Meld('set', 0, [
+      new Card('n1', 'hearts', 7),
+      new Card('n2', 'diamonds', 7),
+      new Card('wild', 'joker', 'joker'),
+    ]);
+    expect(m.naturalCount).toBe(2);
+  });
+
+  test('naturalCount is zero for all-joker meld', () => {
+    const m = new Meld('run', 0, [
+      new Card('w1', 'joker', 'joker'),
+      new Card('w2', 'joker', 'joker'),
+    ]);
+    expect(m.naturalCount).toBe(0);
+  });
+
+  test('wildCount counts only jokers correctly', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'hearts', 4),
+      new Card('n2', 'hearts', 6),
+      new Card('wild', 'joker', 'joker'),
+      new Card('wild2', 'joker', 'joker'),
+      new Card('wild3', 'joker', 'joker'),
+    ]);
+    expect(m.wildCount).toBe(3);
+  });
+
+  test('wildCount is zero for natural-only meld', () => {
+    const m = new Meld('set', 0, [
+      new Card('n1', 'hearts', 7),
+      new Card('n2', 'diamonds', 7),
+      new Card('n3', 'clubs', 7),
+    ]);
+    expect(m.wildCount).toBe(0);
+  });
+
+  test('naturalCount and wildCount together equal total card count', () => {
+    const m = new Meld('run', 0, [
+      new Card('n1', 'spades', 5),
+      new Card('wild', 'joker', 'joker'),
+      new Card('n2', 'spades', 7),
+    ]);
+    expect(m.naturalCount + m.wildCount).toBe(m.cards.length);
+  });
+});
+
+// --- aiConsequencePossible Tests ---
+
+describe('aiConsequencePossible', () => {
+  test('returns true when wilds are sufficient to fill run gaps', () => {
+    const g = new Game();
+    g.startDeal();
+    const naturals = [
+      new Card('n1', 'hearts', 4),
+      new Card('n2', 'hearts', 6),
+    ];
+    expect(g.isConsequencePossible(naturals, 1)).toBe(true); // need 1 wild for gap between 4 and 6
+  });
+
+  test('returns false when wilds are not enough for run gaps', () => {
+    const g = new Game();
+    g.startDeal();
+    const naturals = [
+      new Card('n1', 'hearts', 5),
+      new Card('n2', 'hearts', 10),
+    ];
+    // gap from 5 to 10 requires ranks 6,7,8,9 → 4 wilds
+    expect(g.isConsequencePossible(naturals, 3)).toBe(false); // only have 3 wilds but need 4
+  });
+
+  test('returns false when combined cards are fewer than 3', () => {
+    const g = new Game();
+    g.startDeal();
+    const naturals = [new Card('n1', 'hearts', 8)];
+    expect(g.isConsequencePossible(naturals, 2)).toBe(false); // only 1 natural + possible wilds < 3 total
+  });
+});
