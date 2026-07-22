@@ -66,6 +66,25 @@
 
     <!-- Toast container -->
     <div id="toast-container"></div>
+
+    <!-- Game Over / Leaderboard overlay -->
+    <div id="gameover-container" style="display:none;">
+      <h2>Game Over — Final Standings</h2>
+      <table id="leaderboard-table">
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Player</th>
+            <th>Penalty Score</th>
+            <th>Chip Bonus</th>
+            <th>Final Score</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+      <div id="winner-text"></div>
+      <button id="btn-play-again">Play Again</button>
+    </div>
   </div>
 
   <script type="module" src="game.js"></script>

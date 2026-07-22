@@ -1137,3 +1137,184 @@ describe('AI Bot', () => {
   });
 
 });
+
+// --- Game Over / Leaderboard Tests (Task 8) ---
+
+describe('Game Over / Leaderboard', () => {
+  test('getLeaderboard returns players sorted ascending by score (lowest = rank 1)', () => {
+    const g = new Game();
+    g.players[0].score = 45;
+    g.players[0].chips = 2;
+    g.players[1].score = 60;
+    g.players[1].chips = 4;
+    g.players[2].score = 80;
+    g.players[2].chips = 1;
+    g.players[3].score = 35;
+    g.players[3].chips = 6;
+
+    const lb = g.getLeaderboard();
+    expect(lb.length).toBe(4);
+    expect(lb[0].rank).toBe(1);
+    expect(lb[0].player.score).toBe(35);
+    expect(lb[1].rank).toBe(2);
+    expect(lb[1].player.score).toBe(45);
+    expect(lb[2].rank).toBe(3);
+    expect(lb[2].player.score).toBe(60);
+    expect(lb[3].rank).toBe(4);
+    expect(lb[3].player.score).toBe(80);
+  });
+
+  test('getLeaderboard chipBonus equals chips * 10', () => {
+    const g = new Game();
+    g.players[0].score = 20;
+    g.players[1].score = 60;
+    g.players[2].score = 80;
+    g.players[3].score = 35;
+
+    g.players[0].chips = 6;
+    g.players[1].chips = 0;
+    g.players[2].chips = 4;
+    g.players[3].chips = 1;
+
+    const lb = g.getLeaderboard();
+    expect(lb.find(e => e.player.id === 0).chipBonus).toBe(60);
+    expect(lb.find(e => e.player.id === 1).chipBonus).toBe(0);
+  });
+
+  test('getWinner returns lowest scoring player', () => {
+    const g = new Game();
+    g.players[0].score = 50;
+    g.players[1].score = 30;
+    g.players[2].score = 70;
+    g.players[3].score = 10;
+
+    const winner = g.getWinner();
+    expect(winner.id).toBe(3);
+    expect(winner.score).toBe(10);
+  });
+
+  test('winner is correctly identified on tie (first encountered wins)', () => {
+    const g = new Game();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 50;
+      g.players[i].chips = 3;
+    }
+
+    const winner = g.getWinner();
+    expect(winner.id).toBe(0); // first in sorted array (stable sort)
+  });
+
+  test('all four players always appear in leaderboard', () => {
+    const g = new Game();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 40 + i * 15;
+      g.players[i].chips = Math.max(0, 3 - i);
+    }
+
+    const lb = g.getLeaderboard();
+    expect(lb.length).toBe(4);
+    expect(new Set(lb.map(e => e.player.id)).size).toBe(4);
+  });
+
+  test('endGame applies chip bonus deduction correctly', () => {
+    const g = new Game();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 50 + i * 10;
+      g.players[i].chips = Math.max(0, 3 - i);
+    }
+
+    expect(g.players.map(p => p.score)).toEqual([50, 60, 70, 80]);
+
+    g.endGame();
+
+    for (let i = 0; i < 4; i++) {
+      const expected = 50 + i * 10 - g.players[i].chips * 10;
+      expect(g.players[i].score).toBe(expected);
+    }
+    expect(g.state).toBe('gameover');
+  });
+
+  test('endGame updates scores with chip bonus before leaderboard read', () => {
+    const g = new Game();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 60;
+      g.players[i].chips = 3;
+    }
+
+    g.endGame();
+
+    for (const p of g.players) {
+      expect(p.score).toBe(30);
+    }
+
+    const lb = g.getLeaderboard();
+    expect(lb[0].penaltyScore).toBe(30);
+  });
+
+  test('reset + startGame properly reinitializes game state (Play Again flow)', () => {
+    const g = new Game();
+    g.startDeal();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 100;
+      g.players[i].chips = 3;
+    }
+    g.endGame();
+
+    const winnerBefore = g.getWinner();
+
+    g.reset();
+    expect(g.state).toBe('init');
+    expect(g.dealNumber).toBe(1);
+    expect(g.currentPlayerIndex).toBe(0);
+    expect(g.tableMelds.length).toBe(0);
+    expect(g.players.every(p => p.score === 0));
+    expect(g.players.every(p => p.chips === 6));
+
+    g.startGame();
+    expect(g.state).toBe('discard');
+    expect(g.dealNumber).toBe(1);
+    expect(g.players.every(p => p.hand.length > 0));
+  });
+
+  test('tie winner consistent across different player orderings', () => {
+    function buildTiedGame() {
+      const g = new Game();
+      for (let i = 0; i < 4; i++) {
+        g.players[i].score = 50;
+        g.players[i].chips = 3;
+      }
+      return g;
+    }
+
+    const g1 = buildTiedGame();
+    const g2 = buildTiedGame();
+
+    for (let i = 0; i < 4; i++) {
+      expect(g1.getWinner().id).toBe(0);
+      expect(g2.getWinner().id).toBe(0);
+    }
+  });
+
+  test('leaderboard score order matches final standings after endGame', () => {
+    const g = new Game();
+    for (let i = 0; i < 4; i++) {
+      g.players[i].score = 80 - i * 20;
+      g.players[i].chips = i + 1;
+    }
+
+    g.endGame();
+
+    const lb = g.getLeaderboard();
+    expect(lb[0].rank).toBe(1);
+    expect(lb[0].player.id).toBe(3); // was highest penalty (80), now with bonus
+    expect(lb[1].rank).toBe(2);
+    expect(lb[2].rank).toBe(3);
+    expect(lb[3].rank).toBe(4);
+
+    for (let i = 0; i < lb.length - 1; i++) {
+      const curFinal = lb[i].penaltyScore + lb[i].chipBonus;
+      const nextFinal = lb[i + 1].penaltyScore + lb[i + 1].chipBonus;
+      expect(curFinal).toBeLessThanOrEqual(nextFinal);
+    }
+  });
+});

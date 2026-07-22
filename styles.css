@@ -213,3 +213,78 @@ input[type="radio"] {
   from { opacity: 0; transform: translateY(20px); }
   to   { opacity: 1; transform: none; }
 }
+
+/* ---- Game Over / Leaderboard Overlay ---- */
+#gameover-container {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 25, 15, 0.92);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  gap: 1rem;
+  padding: 2rem;
+}
+
+#gameover-container h2 {
+  font-size: 1.8rem;
+  color: #f5d442;
+  letter-spacing: 0.05em;
+}
+
+#leaderboard-table {
+  border-collapse: collapse;
+  background: #1f3a28;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+
+#leaderboard-table th, #leaderboard-table td {
+  padding: 0.6rem 1.2rem;
+  text-align: center;
+  min-width: 80px;
+}
+
+#leaderboard-table th {
+  background: #3a7a5c;
+  color: #f0e6d3;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+}
+
+#leaderboard-table td {
+  background: #26382b;
+  font-size: 1.05rem;
+}
+
+#leaderboard-table tbody tr.rank-1 td {
+  background: #f5d442;
+  color: #1a3c2a;
+  font-weight: bold;
+}
+
+#leaderboard-table tbody tr td:nth-child(1) {
+  width: 60px;
+}
+
+#winner-text {
+  color: #f5d442;
+  font-size: 1.3rem;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  #gameover-container h2 {
+    font-size: 1.3rem;
+  }
+  #leaderboard-table th, #leaderboard-table td {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  #winner-text {
+    font-size: 1rem;
+  }
+}

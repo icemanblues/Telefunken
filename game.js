@@ -754,6 +754,23 @@ export class Game {
 
     return false;
   }
+
+  getLeaderboard() {
+    // Returns players sorted by score ascending (lowest = best rank, 1st place)
+    const sorted = [...this.players].sort((a, b) => a.score - b.score);
+    return sorted.map((player, rankIdx) => ({
+      rank: rankIdx + 1,
+      player,
+      penaltyScore: player.score,
+      chipBonus: player.chips * 10,
+    }));
+  }
+
+  getWinner() {
+    const lb = this.getLeaderboard();
+    if (lb.length === 0) return null;
+    return lb[0].player;
+  }
 }
 
 // --- Browser UI Init (guarded for Jest compatibility) ---
@@ -964,8 +981,56 @@ if (typeof window !== 'undefined') {
     }
   }
 
+  function renderGameOver() {
+    const overlay = document.getElementById('gameover-container');
+    if (!overlay) return;
+
+    const tbody = document.getElementById('leaderboard-body');
+    tbody.innerHTML = '';
+
+    // Use the game instance from initUI closure
+    const leaderboard = game.getLeaderboard();
+    for (const entry of leaderboard) {
+      const tr = document.createElement('tr');
+      if (entry.rank === 1) tr.classList.add('rank-1');
+      td(tr, String(entry.rank));
+      td(tr, entry.player.name);
+
+      // Show raw penalty score and chip bonus separately
+      td(tr, `${entry.penaltyScore}`);
+      td(tr, `+${entry.chipBonus}`);
+
+      const finalScore = entry.penaltyScore + entry.chipBonus;
+      td(tr, `${finalScore}`);
+
+      tbody.appendChild(tr);
+    }
+
+    const winnerEntry = leaderboard[0];
+    if (winnerEntry) {
+      const winnerTextEl = document.getElementById('winner-text');
+      if (winnerTextEl) {
+        const finalScore = winnerEntry.penaltyScore + winnerEntry.chipBonus;
+        winnerTextEl.textContent = `${winnerEntry.player.name} wins with ${finalScore} points!`;
+      }
+    }
+
+    overlay.style.display = 'flex';
+    overlay.classList.add('card-enter');
+  }
+
+  function hideGameOver() {
+    const overlay = document.getElementById('gameover-container');
+    if (overlay) overlay.style.display = 'none';
+  }
+
+  function td(parent, text) {
+    const el = document.createElement('td');
+    el.textContent = text;
+    parent.appendChild(el);
+  }
+
   function initUI() {
-    const game = new Game();
 
     // --- Auto-play state ---
     let autoPlayActive = true;
@@ -1009,6 +1074,9 @@ if (typeof window !== 'undefined') {
       // On deal transition or end, trigger auto-advance / tick
       if (game.state === 'dealover') {
         tryAdvanceDeal();
+      } else if (game.state === 'gameover') {
+        hideGameOver();
+        setTimeout(() => renderGameOver(), 100);
       } else {
         scheduleNextAiTick();
       }
@@ -1071,6 +1139,16 @@ if (typeof window !== 'undefined') {
         autoPlayTimer = null;
       }
       showToast('Auto-play stopped.');
+    });
+
+    // Play Again wiring
+    document.getElementById('btn-play-again').addEventListener('click', () => {
+      hideGameOver();
+      game.reset();
+      renderBoard(game);
+      setTimeout(() => {
+        game.startGame();
+      }, 300);
     });
   }
 
