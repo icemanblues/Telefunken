@@ -143,9 +143,9 @@ const CONTRACTS = [
 ];
 
 export class Player {
-  constructor(id) {
+  constructor(id, name) {
     this.id = id;
-    this.name = id === 0 ? 'You' : `AI ${id}`;
+    this.name = name ?? (id === 0 ? 'You' : `CPU ${id}`);
     this.isHuman = id === 0;
     this.hand = [];
     this.chips = 6;
@@ -161,8 +161,9 @@ export class Player {
 // --- Game State Machine ---
 
 export class Game {
-  constructor() {
-    this.players = [new Player(0), new Player(1), new Player(2), new Player(3)];
+  constructor(playerName) {
+    this.playerName = playerName || 'Player 1';
+    this.players = [new Player(0, this.playerName), new Player(1), new Player(2), new Player(3)];
     this.deck = null;
     this.discardPile = [];
     this.tableMelds = [];
@@ -177,12 +178,15 @@ export class Game {
     };
   }
 
-  reset() {
+  reset(newName) {
+    if (newName !== undefined) this.playerName = newName;
     this.players.forEach(p => {
       p.chips = 6;
       p.score = 0;
       p.hasMelded = false;
+      p.hand = [];
     });
+    if (this.players[0]) this.players[0].name = this.playerName;
     this.dealNumber = 1;
     this.currentPlayerIndex = 0;
     this.state = 'init';
@@ -466,7 +470,7 @@ export class Game {
     return p && !p.isHuman;
   }
 
-  endTurn(playerId) {
+  endTurn(_playerId) {
     if (this.state !== 'meld') return false;
     // Stock exhaustion check: on current player's discard, see if next players can draw
     this.state = 'discard';
@@ -652,17 +656,17 @@ export class Game {
     // Temporarily augment hand for evaluation (restored safely via try-finally)
     const oldHand = [...player.hand];
     player.hand.push(discardTopId);
-    let meldsWithDiscard = [];
+    let meldsFound;
     try {
-      meldsWithDiscard = this.aiEvaluateMelds(playerId);
+      meldsFound = this.aiEvaluateMelds(playerId);
     } finally {
       player.hand = oldHand;
     }
 
     // Check if meld value increased meaningfully
-    if (meldsWithDiscard.length > 0) {
+    if (meldsFound.length > 0) {
       let meldScore = 0;
-      for (const m of meldsWithDiscard) {
+      for (const m of meldsFound) {
         if (m.cardIds.includes(discardTopId)) {
           meldScore += m.cardIds.length;
         }
@@ -1032,6 +1036,15 @@ if (typeof window !== 'undefined') {
 
   function initUI() {
 
+    // -- New Game Overlay helpers --
+    function showNewGameOverlay() {
+      const overlay = document.getElementById('new-game-overlay');
+      if (!overlay) return;
+      const input = document.getElementById('player-name-input');
+      if (input) input.value = game.playerName || 'Player 1';
+      overlay.style.display = 'flex';
+    }
+
     // --- Auto-play state ---
     let autoPlayActive = true;
     let autoPlayTimer = null;
@@ -1082,11 +1095,8 @@ if (typeof window !== 'undefined') {
       }
     };
 
-    renderBoard(game);
-    // Small delay to let the browser settle, then start first deal
-    setTimeout(() => {
-      game.startGame();
-    }, 300);
+    showNewGameOverlay();
+
 
     // Wire buttons to game methods (placeholders wired in Task 6)
     document.getElementById('btn-buy').addEventListener('click', () => {
@@ -1141,16 +1151,47 @@ if (typeof window !== 'undefined') {
       showToast('Auto-play stopped.');
     });
 
-    // Play Again wiring
+    // Play Again wiring: show the new-game overlay, keeping current name
     document.getElementById('btn-play-again').addEventListener('click', () => {
       hideGameOver();
       game.reset();
       renderBoard(game);
-      setTimeout(() => {
-        game.startGame();
-      }, 300);
+      setTimeout(() => showNewGameOverlay(), 200);
     });
   }
 
-  window.addEventListener('DOMContentLoaded', initUI);
+  // -- New Game: confirm button (wired after initUI so it always exists regardless of DOM timing) --
+  function onNewGameConfirm() {
+    const input = document.getElementById('player-name-input');
+    const name = (input ? input.value : '') || 'Player 1';
+    game.playerName = name.trim() || 'Player 1';
+    game.players[0].name = game.playerName;
+    const overlay = document.getElementById('new-game-overlay');
+    if (overlay) overlay.style.display = 'none';
+    renderBoard(game);
+    setTimeout(() => {
+      game.startGame();
+    }, 300);
+  }
+
+  // Wire the game buttons + the new-game overlay confirm button after DOM is ready
+  function onGameReady() {
+    const btn = document.getElementById('btn-confirm-new-game');
+    if (btn) {
+      btn.addEventListener('click', onNewGameConfirm);
+    }
+    const input = document.getElementById('player-name-input');
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') onNewGameConfirm();
+      });
+    }
+
+    // Now wire all game button listeners inside initUI
+    initUI();
+  }
+
+  if (document.readyState !== 'loading') onGameReady();
+  else document.addEventListener('DOMContentLoaded', onGameReady);
+
 }

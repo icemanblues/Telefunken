@@ -297,8 +297,14 @@ describe('Player', () => {
   test('creates AI player at id 1', () => {
     const p = new Player(1);
     expect(p.id).toBe(1);
-    expect(p.name).toBe('AI 1');
+    expect(p.name).toBe('CPU 1');
     expect(p.isHuman).toBe(false);
+  });
+
+  test('Player with custom name uses it for all roles', () => {
+    expect(new Player(0, 'Malcolm').name).toBe('Malcolm');
+    expect(new Player(1, 'Bot').name).toBe('Bot');
+    expect(new Player(5, 'X').name).toBe('X');
   });
 
   test('handCardCount returns correct length', () => {
@@ -316,6 +322,18 @@ describe('Game', () => {
     expect(g.state).toBe('init');
     expect(g.players.length).toBe(4);
     expect(g.allCards).toEqual({});
+  });
+
+  test('new Game(name) sets player 0 name and playerName property', () => {
+    const g = new Game('Malcolm');
+    expect(g.playerName).toBe('Malcolm');
+    expect(g.players[0].name).toBe('Malcolm');
+  });
+
+  test('new Game() defaults to Player 1', () => {
+    const g = new Game();
+    expect(g.playerName).toBe('Player 1');
+    expect(g.players[0].name).toBe('Player 1');
   });
 
   test('startGame initializes and starts first deal', () => {
@@ -1274,6 +1292,25 @@ describe('Game Over / Leaderboard', () => {
     expect(g.state).toBe('discard');
     expect(g.dealNumber).toBe(1);
     expect(g.players.every(p => p.hand.length > 0));
+  });
+
+  test('reset preserves playerName and re-applies to player 0', () => {
+    const g = new Game('Malcolm');
+    expect(g.playerName).toBe('Malcolm');
+    expect(g.players[0].name).toBe('Malcolm');
+
+    g.endGame();
+    g.reset();
+    expect(g.playerName).toBe('Malcolm');
+    expect(g.players[0].name).toBe('Malcolm');
+  });
+
+  test('reset(newName) updates playerName during reset', () => {
+    const g = new Game('OldName');
+    g.endGame();
+    g.reset('NewName');
+    expect(g.playerName).toBe('NewName');
+    expect(g.players[0].name).toBe('NewName');
   });
 
   test('tie winner consistent across different player orderings', () => {

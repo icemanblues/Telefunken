@@ -288,3 +288,103 @@ input[type="radio"] {
     font-size: 1rem;
   }
 }
+
+/* ---- New Game Overlay ---- */
+#new-game-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(10, 25, 15, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+#new-game-overlay .overlay-content {
+  background: #1f3a28;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  max-width: 520px;
+  width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+#new-game-overlay h1 {
+  font-size: 1.6rem;
+  color: #f5d442;
+  text-align: center;
+  letter-spacing: 0.05em;
+}
+
+#rules-section h2 {
+  font-size: 1rem;
+  color: #bfc93e;
+  margin-bottom: 0.3rem;
+}
+
+#contracts-table, #scoring-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+#contracts-table th, #contracts-table td,
+#scoring-table th, #scoring-table td {
+  padding: 0.3rem 0.6rem;
+  text-align: center;
+  border: 1px solid #4a7a5c;
+  font-size: 0.9rem;
+}
+
+#contracts-table th, #scoring-table th {
+  background: #3a7a5c;
+  color: #f0e6d3;
+}
+
+#contracts-table td, #scoring-table td {
+  background: #26382b;
+}
+
+#new-game-overlay label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+}
+
+#player-name-input {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid #7a7a5c;
+  background: #2d3b2e;
+  color: #f0e6d3;
+  font-size: 1rem;
+  flex: 1;
+}
+
+#btn-confirm-new-game {
+  padding: 0.6rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #f5a623;
+  color: #1a3c2a;
+  align-self: center;
+}
+
+#btn-confirm-new-game:hover {
+  background: #ffc04d;
+}
+
+@media (max-width: 600px) {
+  #new-game-overlay .overlay-content {
+    padding: 1.2rem 1rem;
+  }
+  #new-game-overlay h1 {
+    font-size: 1.3rem;
+  }
+}

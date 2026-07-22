@@ -85,6 +85,41 @@
       <div id="winner-text"></div>
       <button id="btn-play-again">Play Again</button>
     </div>
+
+    <!-- New Game overlay -->
+    <div id="new-game-overlay" class="overlay" style="display:none;">
+      <div class="overlay-content card-enter">
+        <h1>Telefunken — Peru Version 1</h1>
+        <section id="rules-section">
+          <h2>Contracts (6 deals)</h2>
+          <table id="contracts-table">
+            <thead><tr><th>Deal</th><th>Contract</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>2 sets of 3</td></tr>
+              <tr><td>2</td><td>1 set of 4</td></tr>
+              <tr><td>3</td><td>2 sets of 4</td></tr>
+              <tr><td>4</td><td>1 set of 5</td></tr>
+              <tr><td>5</td><td>2 sets of 5</td></tr>
+              <tr><td>6</td><td>1 set of 6</td></tr>
+            </tbody>
+          </table>
+          <h2>Scoring</h2>
+          <table id="scoring-table">
+            <thead><tr><th>Card</th><th>Points</th></tr></thead>
+            <tbody>
+              <tr><td>Ace</td><td>15</td></tr>
+              <tr><td>2 and Joker</td><td>20</td></tr>
+              <tr><td>10 — K</td><td>10</td></tr>
+              <tr><td>3 — 9</td><td>Face value</td></tr>
+            </tbody>
+          </table>
+          <p>Winner: lowest cumulative score. Unused chips give a bonus of -10 pts each.</p>
+        </section>
+        <label>Your name: <input type="text" id="player-name-input" value="Player 1"></label>
+        <button id="btn-confirm-new-game">Start Game</button>
+      </div>
+    </div>
+
   </div>
 
   <script type="module" src="game.js"></script>
