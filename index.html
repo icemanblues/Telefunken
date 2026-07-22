@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telefunken — Peru v1</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Round indicator -->
+    <header id="round-indicator">
+      <span id="deal-label">Deal #1</span> | <span id="contract-label">Contract: 2×3</span>
+    </header>
+
+    <!-- Scoreboard -->
+    <section id="scoreboard">
+      <table>
+        <thead>
+          <tr>
+            <th>Player</th>
+            <th>Hand</th>
+            <th>Buys</th>
+            <th>Score</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="scoreboard-body"></tbody>
+      </table>
+    </section>
+
+    <!-- Table melds area -->
+    <section id="table-melds">
+      <div id="melds-container"></div>
+      <div id="piles-area">
+        <div id="stock-pile" class="pile">Stock: <span id="stock-count">0</span></div>
+        <div id="discard-pile" class="pile">Discard: <span id="discard-top"></span></div>
+      </div>
+    </section>
+
+    <!-- Human hand + controls -->
+    <section id="human-area">
+      <h3>Your Hand</h3>
+      <div id="human-hand"></div>
+      <div id="meld-controls">
+        <!-- Selection type radio for chosen cards -->
+        <label><input type="radio" name="meldType" value="set" checked> Set</label>
+        <label><input type="radio" name="meldType" value="run"> Run</label>
+        <button id="btn-confirm-set">Confirm Set</button>
+        <button id="btn-confirm-run">Confirm Run</button>
+      </div>
+      <div id="add-meld-controls">
+        <button id="btn-add-meld-toggle">Add to Meld &darr;</button>
+        <div id="add-meld-options" style="display:none;">
+          <select id="add-meld-target"></select>
+          <button id="btn-confirm-add">Add Selected</button>
+        </div>
+      </div>
+      <div id="turn-controls">
+        <button id="btn-buy" style="display:none;">Buy Card</button>
+        <button id="btn-end-turn">End Turn</button>
+        <button id="btn-stop-auto" title="Stop AI auto-play">⏹ Stop Auto-Play</button>
+      </div>
+      <p id="phase-label" class="phase-label"></p>
+    </section>
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+  </div>
+
+  <script type="module" src="game.js"></script>
+</body>
+</html>
