@@ -171,6 +171,7 @@ export class Game {
     this.currentPlayerIndex = 0;
     this.state = 'init';
     this.allCards = {};
+    this.discardBuyerPromptIndex = -1;
     this.messagesOut = {
       onStateChanged: null, 
       onMessage: null,
@@ -192,6 +193,7 @@ export class Game {
     this.state = 'init';
     this.tableMelds = [];
     this.allCards = {};
+    this.discardBuyerPromptIndex = -1;
   }
 
   startGame() {
@@ -281,6 +283,10 @@ export class Game {
     }
     // Transition to meld phase only when on own turn
     if (isOwnTurn) {
+      this.state = 'meld';
+    }
+    // When buying during the buyDiscard purchase rotation, also transition to meld
+    if (this.state === 'buyDiscard') {
       this.state = 'meld';
     }
     this.publish('stateChanged');
@@ -402,8 +408,28 @@ export class Game {
       return true;
     }
 
+    const prevIndex = (this.currentPlayerIndex - 1 + 4) % 4;
+    // If we haven't started the buyDiscard rotation for this deal, this is the initial dealer discard — skip buy phase
+    let isInitialDealDiscard = (this.discardBuyerPromptIndex < 0);
+
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % 4;
-    this.state = 'draw';
+
+    if (isInitialDealDiscard) {
+      // Initial deal discard: skip buy phase, go straight to draw
+      this.state = 'draw';
+    } else {
+      // Regular discard: enter the buyDiscard purchase rotation
+      // Start from next player after the one who just discarded; skip the discarder themselves
+      const newPromptIndex = (this.currentPlayerIndex) % 4;
+      if (newPromptIndex === prevIndex) {
+        // Only the discarder remains — end rotation, go to draw
+        this.discardBuyerPromptIndex = -1;
+        this.state = 'draw';
+      } else {
+        this.discardBuyerPromptIndex = newPromptIndex;
+        this.state = 'buyDiscard';
+      }
+    }
     this.publish('stateChanged');
     return true;
   }
@@ -747,6 +773,17 @@ export class Game {
       return this.endTurn(playerId);
     }
 
+    // If in buyDiscard phase: decide whether to buy the discard
+    if (this.state === 'buyDiscard') {
+      const wants = this.aiWantsDiscard(playerId);
+      if (wants && player.chips > 0) {
+        return this.buyDiscard(playerId);
+      }
+      // Don't want or can't buy — advance the prompt to next player
+      this.advanceBuyDiscardPrompt();
+      return true;
+    }
+
     // If in discard phase after melding: pick a card and discard
     if (this.state === 'discard') {
       const cardId = this.aiDiscard(playerId);
@@ -757,6 +794,32 @@ export class Game {
     }
 
     return false;
+  }
+
+  advanceBuyDiscardPrompt() {
+    if (this.discardBuyerPromptIndex < 0) return;
+
+    // Advance to next player in rotation
+    const prevIdx = this.discardBuyerPromptIndex;
+    const discarderIdx = (prevIdx - 1 + 4) % 4;
+    let nextIdx = (prevIdx + 1) % 4;
+    let loops = 0;
+    while (nextIdx !== discarderIdx && loops < 4) {
+      // Check if the player can buy (has chips and hasn't melded)
+      const p = this.players[nextIdx];
+      if (p.chips > 0 && !p.hasMelded) break;
+      nextIdx = (nextIdx + 1) % 4;
+      loops++;
+    }
+
+    if (nextIdx === discarderIdx || loops >= 4) {
+      // All players have had a chance, go to draw phase
+      this.discardBuyerPromptIndex = -1;
+      this.publish('stateChanged');
+    } else {
+      this.discardBuyerPromptIndex = nextIdx;
+      this.publish('stateChanged');
+    }
   }
 
   getLeaderboard() {
@@ -902,7 +965,7 @@ if (typeof window !== 'undefined') {
     }
 
     // Stock / discard piles
-    document.getElementById('stock-count').textContent = game.deck.remaining;
+    document.getElementById('stock-count').textContent = game.deck ? game.deck.remaining : 0;
     const dtEl = document.getElementById('discard-top');
     dtEl.innerHTML = '';
     if (game.discardPile.length) {
@@ -958,6 +1021,13 @@ if (typeof window !== 'undefined') {
     } else if (isHumanTurn && game.state === 'discard') {
       discardMode = true; enable(meldControls); disable(addMeldControls); endTurnBtn.disabled = false;
       showToast('Click a card to discard.');
+    } else if (game.state === 'buyDiscard') {
+      // Discard-buy phase: hide regular controls during this phase
+      disable(meldControls); disable(addMeldControls); endTurnBtn.disabled = true;
+      const promptIdx = game.discardBuyerPromptIndex;
+      if (promptIdx >= 0 && promptIdx < game.players.length) {
+        showToast(`${game.players[promptIdx].name}'s turn to decide.`);
+      }
     } else if (isHumanTurn && game.state === 'draw') {
       disable(meldControls); disable(addMeldControls); endTurnBtn.disabled = true;
     } else {
@@ -972,7 +1042,7 @@ if (typeof window !== 'undefined') {
 
     // Buy button: always visible when eligible, regardless of whose turn
     if (human.hasMelded || human.chips <= 0 || game.discardPile.length === 0
-        || game.state === 'dealover' || game.state === 'gameover') {
+        || game.state === 'dealover' || game.state === 'gameover' || game.state === 'buyDiscard') {
       btnBuy.style.display = 'none';
     } else {
       btnBuy.style.display = '';
@@ -1039,60 +1109,10 @@ if (typeof window !== 'undefined') {
       overlay.style.display = 'flex';
     }
 
-    // --- Auto-play state ---
-    let autoPlayActive = true;
-    let autoPlayTimer = null;
-
-    function scheduleNextAiTick() {
-      if (autoPlayTimer) clearTimeout(autoPlayTimer);
-      autoPlayTimer = null;
-
-      // Exit conditions: game over, human turn, or manually stopped
-      const isGameOver = (game.state === 'dealover' || game.state === 'gameover');
-      const isHumanTurn = (game.currentPlayerIndex === 0);
-      if (isGameOver || isHumanTurn || !autoPlayActive) return;
-
-      // If in an actionable AI state, tick after delay
-      const aiActionable = ['draw', 'meld', 'discard'].includes(game.state);
-      if (!aiActionable) return;
-
-      autoPlayTimer = setTimeout(() => {
-        const aiId = game.currentPlayerIndex;
-        game.aiPlayTurn(aiId);
-        scheduleNextAiTick();
-      }, 800);
-    }
-
-    // Deal-advance prompt for AI
-    function tryAdvanceDeal() {
-      if (!autoPlayActive || game.state !== 'dealover') return;
-      setTimeout(() => {
-        game.advanceDeal();
-        renderBoard(game);
-        // After advancing, check if a new AI deal should auto-start ticking
-        if (game.state !== 'gameover') {
-          scheduleNextAiTick();
-        }
-      }, 1200);
-    }
-
-    game.messagesOut.onStateChanged = () => {
-      renderBoard(game);
-      // On deal transition or end, trigger auto-advance / tick
-      if (game.state === 'dealover') {
-        tryAdvanceDeal();
-      } else if (game.state === 'gameover') {
-        hideGameOver();
-        setTimeout(() => renderGameOver(), 100);
-      } else {
-        scheduleNextAiTick();
-      }
-    };
-
     showNewGameOverlay();
 
 
-    // Wire buttons to game methods (placeholders wired in Task 6)
+    // Wire buttons to game methods
     document.getElementById('btn-buy').addEventListener('click', () => {
       game.buyDiscard(0);
     });
@@ -1135,14 +1155,23 @@ if (typeof window !== 'undefined') {
       }
     });
 
-    // Stop auto-play wiring
-    document.getElementById('btn-stop-auto').addEventListener('click', () => {
-      autoPlayActive = false;
-      if (autoPlayTimer) {
-        clearTimeout(autoPlayTimer);
-        autoPlayTimer = null;
+    // Discard buy modal buttons wiring
+    document.getElementById('btn-discard-buy-yes').addEventListener('click', () => {
+      hideDiscardBuyOverlay();
+      if (game.discardBuyerPromptIndex >= 0) {
+        const ok = game.buyDiscard(game.discardBuyerPromptIndex);
+        if (ok) {
+          showToast(`${game.players[game.discardBuyerPromptIndex].name} bought the discard.`);
+        } else {
+          // Could not buy — skip to next player / end rotation
+          game.advanceBuyDiscardPrompt();
+        }
       }
-      showToast('Auto-play stopped.');
+    });
+
+    document.getElementById('btn-discard-buy-no').addEventListener('click', () => {
+      hideDiscardBuyOverlay();
+      game.advanceBuyDiscardPrompt();
     });
 
     // Play Again wiring: show the new-game overlay, keeping current name
@@ -1152,6 +1181,74 @@ if (typeof window !== 'undefined') {
       renderBoard(game);
       setTimeout(() => showNewGameOverlay(), 200);
     });
+
+    // --- Helper functions for discard-buy-modal ---
+    function showDiscardBuyOverlay() {
+      const overlay = document.getElementById('discard-buy-overlay');
+      if (!overlay) return;
+      const promptIdx = game.discardBuyerPromptIndex;
+      if (promptIdx < 0 || promptIdx >= game.players.length) return;
+      const player = game.players[promptIdx];
+      
+      // If this is an AI player, decide automatically via timeout for UX
+      if (!player.isHuman) {
+        setTimeout(() => {
+          if (game.state !== 'buyDiscard' || game.discardBuyerPromptIndex !== promptIdx) return;
+          const wants = game.aiWantsDiscard(promptIdx);
+          if (wants && player.chips > 0) {
+            game.buyDiscard(promptIdx);
+            showToast(`${player.name} bought the discard.`);
+          } else {
+            game.advanceBuyDiscardPrompt();
+          }
+        }, 600);
+        return;
+      }
+      
+      // For human player, show the modal
+      const cardDisplay = document.getElementById('discard-buy-card-display');
+      if (cardDisplay && game.discardPile.length > 0) {
+        const topId = game.discardPile[game.discardPile.length - 1];
+        const card = game.getCard(topId);
+        if (card) {
+          cardDisplay.innerHTML = '';
+          const el = cardElement(topId, game.allCards, false);
+          if (el) cardDisplay.appendChild(el);
+        }
+      }
+      
+      overlay.style.display = 'flex';
+      showToast(`${player.name}'s turn to decide.`);
+    }
+
+    function hideDiscardBuyOverlay() {
+      const overlay = document.getElementById('discard-buy-overlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    // Local UI wrapper for buyDiscard prompt advancement
+    
+
+    function onStateChanged() {
+      renderBoard(game);
+      if (game.state === 'dealover') {
+        // Auto-advance to next deal after a short delay for UX
+        setTimeout(() => {
+          if (game.state !== 'dealover') return;
+          game.advanceDeal();
+          renderBoard(game);
+        }, 1500);
+      } else if (game.state === 'gameover') {
+        hideGameOver();
+        setTimeout(() => renderGameOver(), 100);
+      } else if (game.state === 'buyDiscard') {
+        // Show the discard-buy modal for the current promptee
+        showDiscardBuyOverlay();
+      }
+    }
+
+    // Attach state change handler to Game instance
+    game.messagesOut.onStateChanged = onStateChanged;
   }
 
   // -- New Game: confirm button (wired after initUI so it always exists regardless of DOM timing) --

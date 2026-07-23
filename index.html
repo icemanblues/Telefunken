@@ -59,13 +59,23 @@
       <div id="turn-controls">
         <button id="btn-buy" style="display:none;">Buy Card</button>
         <button id="btn-end-turn">End Turn</button>
-        <button id="btn-stop-auto" title="Stop AI auto-play">⏹ Stop Auto-Play</button>
       </div>
       <p id="phase-label" class="phase-label"></p>
     </section>
 
     <!-- Toast container -->
     <div id="toast-container"></div>
+
+    <!-- Discard buy confirmation overlay -->
+    <div id="discard-buy-overlay" class="overlay" style="display:none;">
+      <div class="overlay-content card-enter">
+        <h2>Discard Available</h2>
+        <p><span id="discard-buy-card-display"></span></p>
+        <p>Would you like to buy this card?</p>
+        <button id="btn-discard-buy-yes" class="btn-yes">Yes</button>
+        <button id="btn-discard-buy-no" class="btn-no">No</button>
+      </div>
+    </div>
 
     <!-- Game Over / Leaderboard overlay -->
     <div id="gameover-container" style="display:none;">

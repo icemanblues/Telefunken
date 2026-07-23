@@ -388,3 +388,33 @@ input[type="radio"] {
     font-size: 1.3rem;
   }
 }
+
+/* Discard buy confirmation overlay */
+#discard-buy-overlay {
+  z-index: 1001;
+}
+
+#btn-discard-buy-yes {
+  padding: 0.6rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #27ae60;
+  color: #fff;
+  margin-right: 0.8rem;
+}
+
+#btn-discard-buy-yes:hover {
+  background: #2ecc71;
+}
+
+#btn-discard-buy-no {
+  padding: 0.6rem 1.5rem;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #e74c3c;
+  color: #fff;
+}
+
+#btn-discard-buy-no:hover {
+  background: #ec7063;
+}
