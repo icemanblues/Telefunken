@@ -99,6 +99,34 @@ export function isValidRun(naturals, wildCards) {
   return false;
 }
 
+// --- Sort Helpers (testable, pure) ---
+
+const SUIT_ORDER = { spades: 1, hearts: 2, diamonds: 3, clubs: 4 };
+
+export function sortByRank(cards) {
+  return [...cards].sort((a, b) => {
+    if (a.isJoker && !b.isJoker) return 1;
+    if (!a.isJoker && b.isJoker) return -1;
+    const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
+    const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
+    if (aRank !== bRank) return aRank - bRank;
+    if (a.suit !== b.suit) return (SUIT_ORDER[a.suit] ?? 0) - (SUIT_ORDER[b.suit] ?? 0);
+    return a.id.localeCompare(b.id);
+  });
+}
+
+export function sortBySuit(cards) {
+  return [...cards].sort((a, b) => {
+    if (a.isJoker && !b.isJoker) return 1;
+    if (!a.isJoker && b.isJoker) return -1;
+    if (a.suit !== b.suit) return (SUIT_ORDER[a.suit] ?? 0) - (SUIT_ORDER[b.suit] ?? 0);
+    const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
+    const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
+    if (aRank !== bRank) return aRank - bRank;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 // --- Meld Class ---
 
 export class Meld {
@@ -985,28 +1013,17 @@ if (typeof window !== 'undefined') {
     hh.innerHTML = '';
     const human = game.players[0];
     
-    let displayCards = [...human.hand];
+    let cardObjs;
     if (currentSortMode === 'suit') {
-      const suitOrder = { spades: 1, hearts: 2, diamonds: 3, clubs: 4 };
-      displayCards.sort((a, b) => {
-        const cardA = game.allCards[a], cardB = game.allCards[b];
-        if (cardA.suit !== cardB.suit) return suitOrder[cardA.suit] - suitOrder[cardB.suit];
-        return cardA.rank - cardB.rank;
-      });
+      cardObjs = sortBySuit(human.hand.map(id => game.allCards[id]).filter(Boolean));
     } else if (currentSortMode === 'rank') {
-      displayCards.sort((a, b) => {
-        const cardA = game.allCards[a], cardB = game.allCards[b];
-        if (cardA.rank !== cardB.rank) {
-          const aVal = typeof cardA.rank === 'number' ? cardA.rank : Infinity;
-          const bVal = typeof cardB.rank === 'number' ? cardB.rank : Infinity;
-          return aVal - bVal;
-        }
-        return a.localeCompare(b); // tiebreak by ID for deterministic order
-      });
+      cardObjs = sortByRank(human.hand.map(id => game.allCards[id]).filter(Boolean));
+    } else {
+      cardObjs = human.hand.map(id => game.allCards[id]).filter(Boolean);
     }
     
-    for (const cid of displayCards) {
-      hh.appendChild(cardElement(cid, game.allCards, true));
+    for (const card of cardObjs) {
+      hh.appendChild(cardElement(card.id, game.allCards, true));
     }
 
     // Phase label

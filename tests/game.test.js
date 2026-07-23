@@ -1,4 +1,4 @@
-import { Card, Deck, Meld, Player, Game } from '../game.js';
+import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit } from '../game.js';
 import { isValidSet, isValidRun } from '../game.js';
 
 describe('Card', () => {
@@ -1802,5 +1802,97 @@ describe('aiConsequencePossible', () => {
     g.startDeal();
     const naturals = [new Card('n1', 'hearts', 8)];
     expect(g.isConsequencePossible(naturals, 2)).toBe(false); // only 1 natural + possible wilds < 3 total
+  });
+});
+
+// --- Sort Function Tests ---
+
+describe('sortByRank', () => {
+  test('sorts cards by rank ascending', () => {
+    const deck = new Deck();
+    const cards = [
+      deck.cards.find(c => c.suit === 'hearts' && c.rank === 10),
+      deck.cards.find(c => c.suit === 'clubs' && c.rank === 3),
+      deck.cards.find(c => c.suit === 'spades' && c.rank === 7),
+      deck.cards.find(c => c.suit === 'diamonds' && c.rank === 5),
+    ];
+    const sorted = sortByRank(cards);
+    expect(sorted[0].rank).toBe(3);
+    expect(sorted[1].rank).toBe(5);
+    expect(sorted[2].rank).toBe(7);
+    expect(sorted[3].rank).toBe(10);
+  });
+
+  test('sorts jokers to the end of the hand', () => {
+    const deck = new Deck();
+    const jokers = deck.cards.filter(c => c.isJoker);
+    const cards = [
+      new Card('c1', 'hearts', 7),
+      jokers[0],
+    ];
+    const sorted = sortByRank(cards);
+    expect(sorted[0].rank).toBe(7);
+    expect(sorted[1].rank).toBe('joker');
+  });
+
+  test('tie-breaking by suit order within same rank', () => {
+    const deck = new Deck();
+    const cards = [
+      deck.cards.find(c => c.suit === 'diamonds' && c.rank === 7),
+      deck.cards.find(c => c.suit === 'spades' && c.rank === 7),
+      deck.cards.find(c => c.suit === 'hearts' && c.rank === 7),
+      deck.cards.find(c => c.suit === 'clubs' && c.rank === 7),
+    ];
+    const sorted = sortByRank(cards);
+    expect(sorted[0].suit).toBe('spades');
+    expect(sorted[1].suit).toBe('hearts');
+    expect(sorted[2].suit).toBe('diamonds');
+    expect(sorted[3].suit).toBe('clubs');
+  });
+
+  test('returns a new array, leaving original untouched', () => {
+    const deck = new Deck();
+    const cards = [deck.cards.find(c => c.rank === 10)];
+    const sorted = sortByRank(cards);
+    expect(sorted[0].id).toBe(cards[0].id);
+    expect(sorted).not.toBe(cards);
+  });
+
+  test('handles empty input', () => {
+    expect(sortByRank([])).toEqual([]);
+  });
+});
+
+describe('sortBySuit', () => {
+  test('sorts cards by suit order then rank within suit', () => {
+    const deck = new Deck();
+    const cards = [
+      deck.cards.find(c => c.suit === 'clubs' && c.rank === 5),
+      deck.cards.find(c => c.suit === 'hearts' && c.rank === 7),
+      deck.cards.find(c => c.suit === 'spades' && c.rank === 3),
+      deck.cards.find(c => c.suit === 'diamonds' && c.rank === 2),
+      deck.cards.find(c => c.suit === 'hearts' && c.rank === 3),
+    ];
+    const sorted = sortBySuit(cards);
+    expect(sorted[0].suit).toBe('spades');
+    expect(sorted[1].suit).toBe('hearts');
+    expect(sorted[2].rank).toBe(7);
+    expect(sorted[3].suit).toBe('diamonds');
+    expect(sorted[4].suit).toBe('clubs');
+  });
+
+  test('jokers sort after naturals', () => {
+    const deck = new Deck();
+    const jokers = deck.cards.filter(c => c.isJoker);
+    const cards = [
+      ...jokers.map(j => new Card(j.id, 'joker', 'joker')),
+      new Card('c1', 'hearts', 7),
+    ];
+    const sorted = sortBySuit(cards);
+    expect(sorted[sorted.length - 1].suit).toBe('joker');
+  });
+
+  test('handles empty input', () => {
+    expect(sortBySuit([])).toEqual([]);
   });
 });
