@@ -1844,10 +1844,10 @@ describe('sortByRank', () => {
       deck.cards.find(c => c.suit === 'clubs' && c.rank === 7),
     ];
     const sorted = sortByRank(cards);
-    expect(sorted[0].suit).toBe('spades');
-    expect(sorted[1].suit).toBe('hearts');
-    expect(sorted[2].suit).toBe('diamonds');
-    expect(sorted[3].suit).toBe('clubs');
+    expect(sorted[0].suit).toBe('diamonds');
+    expect(sorted[1].suit).toBe('clubs');
+    expect(sorted[2].suit).toBe('hearts');
+    expect(sorted[3].suit).toBe('spades');
   });
 
   test('returns a new array, leaving original untouched', () => {
@@ -1874,11 +1874,11 @@ describe('sortBySuit', () => {
       deck.cards.find(c => c.suit === 'hearts' && c.rank === 3),
     ];
     const sorted = sortBySuit(cards);
-    expect(sorted[0].suit).toBe('spades');
-    expect(sorted[1].suit).toBe('hearts');
-    expect(sorted[2].rank).toBe(7);
-    expect(sorted[3].suit).toBe('diamonds');
-    expect(sorted[4].suit).toBe('clubs');
+    expect(sorted[0].suit).toBe('diamonds');
+    expect(sorted[1].suit).toBe('clubs');
+    expect(sorted[2].suit).toBe('hearts');
+    expect(sorted[3].rank).toBe(7);
+    expect(sorted[4].suit).toBe('spades');
   });
 
   test('jokers sort after naturals', () => {

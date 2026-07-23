@@ -101,7 +101,7 @@ export function isValidRun(naturals, wildCards) {
 
 // --- Sort Helpers (testable, pure) ---
 
-const SUIT_ORDER = { spades: 1, hearts: 2, diamonds: 3, clubs: 4 };
+const SUIT_ORDER = { diamonds: 1, clubs: 2, hearts: 3, spades: 4 };
 
 export function sortByRank(cards) {
   return [...cards].sort((a, b) => {
