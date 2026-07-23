@@ -171,6 +171,7 @@ body {
 }
 
 .card-red { color: #c0392b; }
+.card-dark-on-white { color: #222; }
 .card-black { color: #fff; background: #474747; }
 .card-joker { color: #9c27b0; }
 

@@ -909,7 +909,7 @@ if (typeof window !== 'undefined') {
       el.classList.add('card-joker');
       el.textContent = 'JOKER';
     } else {
-      const colorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'card-red' : 'card-black';
+      const colorClass = (card.suit === 'hearts' || card.suit === 'diamonds') ? 'card-red' : 'card-dark-on-white';
       el.classList.add(colorClass);
       el.innerHTML = `<span>${rankLabel[card.rank]}</span><span style="font-size:1.3rem">${suitSymbol[card.suit]}</span>`;
     }
