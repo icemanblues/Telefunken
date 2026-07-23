@@ -866,6 +866,7 @@ if (typeof window !== 'undefined') {
 
   // -- Selection mode tracking --
   let discardMode = false;
+  let currentSortMode = null;
 
   // Game instance (hoisted for initUI + cardElement closure)
   let game = null;
@@ -983,7 +984,28 @@ if (typeof window !== 'undefined') {
     const hh = document.getElementById('human-hand');
     hh.innerHTML = '';
     const human = game.players[0];
-    for (const cid of human.hand) {
+    
+    let displayCards = [...human.hand];
+    if (currentSortMode === 'suit') {
+      const suitOrder = { spades: 1, hearts: 2, diamonds: 3, clubs: 4 };
+      displayCards.sort((a, b) => {
+        const cardA = game.allCards[a], cardB = game.allCards[b];
+        if (cardA.suit !== cardB.suit) return suitOrder[cardA.suit] - suitOrder[cardB.suit];
+        return cardA.rank - cardB.rank;
+      });
+    } else if (currentSortMode === 'rank') {
+      displayCards.sort((a, b) => {
+        const cardA = game.allCards[a], cardB = game.allCards[b];
+        if (cardA.rank !== cardB.rank) {
+          const aVal = typeof cardA.rank === 'number' ? cardA.rank : Infinity;
+          const bVal = typeof cardB.rank === 'number' ? cardB.rank : Infinity;
+          return aVal - bVal;
+        }
+        return a.localeCompare(b); // tiebreak by ID for deterministic order
+      });
+    }
+    
+    for (const cid of displayCards) {
       hh.appendChild(cardElement(cid, game.allCards, true));
     }
 
@@ -1180,6 +1202,46 @@ if (typeof window !== 'undefined') {
       game.reset();
       renderBoard(game);
       setTimeout(() => showNewGameOverlay(), 200);
+    });
+
+    // Sort buttons wiring
+    let activeSortBtn = null;
+
+    function clearSortButtons() {
+      document.querySelectorAll('#sort-controls .btn-sort-active').forEach(el => el.classList.remove('btn-sort-active'));
+      activeSortBtn = null;
+    }
+
+    document.getElementById('btn-sort-suit').addEventListener('click', () => {
+      // Step 1: deselect all cards before any sort state change
+      document.querySelectorAll('#human-hand .card.selected').forEach(el => el.classList.remove('selected'));
+      clearSortButtons();
+      if (currentSortMode === 'suit') {
+        currentSortMode = null;
+        document.getElementById('sort-controls').classList.remove('active-sort');
+        return;
+      }
+      activeSortBtn = document.getElementById('btn-sort-suit');
+      currentSortMode = 'suit';
+      document.getElementById('sort-controls').classList.add('active-sort');
+      activeSortBtn.classList.add('btn-sort-active');
+      renderBoard(game);
+    });
+
+    document.getElementById('btn-sort-rank').addEventListener('click', () => {
+      // Step 1: deselect all cards before any sort state change
+      document.querySelectorAll('#human-hand .card.selected').forEach(el => el.classList.remove('selected'));
+      clearSortButtons();
+      if (currentSortMode === 'rank') {
+        currentSortMode = null;
+        document.getElementById('sort-controls').classList.remove('active-sort');
+        return;
+      }
+      activeSortBtn = document.getElementById('btn-sort-rank');
+      currentSortMode = 'rank';
+      document.getElementById('sort-controls').classList.add('active-sort');
+      activeSortBtn.classList.add('btn-sort-active');
+      renderBoard(game);
     });
 
     // --- Helper functions for discard-buy-modal ---

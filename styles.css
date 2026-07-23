@@ -96,6 +96,40 @@ body {
 }
 .pile:hover { filter: brightness(1.15); }
 
+/* ---- Sort Controls ---- */
+#sort-controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+#btn-sort-suit, #btn-sort-rank {
+  padding: 0.35rem 1rem;
+  font-size: 0.85rem;
+  border: 2px solid rgba(245, 212, 66, 0.7);
+  background: transparent;
+  color: #f5d442;
+}
+
+#btn-sort-suit:hover, #btn-sort-rank:hover {
+  background: rgba(245, 212, 66, 0.1);
+  border-color: #f5d442;
+}
+
+/* when a button is active for current sort session */
+#sort-controls.active-sort #btn-sort-suit,
+#sort-controls.active-sort #btn-sort-rank {
+  border-color: #f5d442;
+  background: rgba(245, 212, 66, 0.15);
+}
+
+#sort-controls .btn-sort-active {
+  background: rgba(245, 212, 66, 0.25) !important;
+  border-color: #f5d442;
+  box-shadow: 0 0 8px rgba(245, 212, 66, 0.35);
+}
+
 /* ---- Human area ---- */
 #human-area {
   background: #26382b;
