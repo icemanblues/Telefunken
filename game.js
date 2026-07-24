@@ -1425,6 +1425,15 @@ if (typeof window !== 'undefined') {
       } else if (game.state === 'buyDiscard') {
         // Show the discard-buy modal for the current promptee
         showDiscardBuyOverlay();
+      } else if (game.isCurrentPlayerAI() && (game.state === 'draw' || game.state === 'meld')) {
+        // Auto-play CPU turns during draw/meld phases
+        const cpIdx = game.currentPlayerIndex;
+        setTimeout(() => {
+          if (!game.isCurrentPlayerAI()) return;
+          if (game.state !== 'draw' && game.state !== 'meld') return;
+          game.aiPlayTurn(cpIdx);
+          game.publish('stateChanged');
+        }, 800);
       }
     }
 
