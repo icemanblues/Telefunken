@@ -453,3 +453,119 @@ input[type="radio"] {
 #btn-discard-buy-no:hover {
   background: #ec7063;
 }
+
+/* ---- Activity Log Panel ---- */
+
+#activity-log {
+  max-width: 320px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  z-index: 100;
+}
+
+.log-panel-inner {
+  min-width: 280px;
+  max-height: 45vh;
+  margin-top: 0.5rem;
+  padding: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.log-title {
+  color: #bfc93e;
+  font-size: 0.85rem;
+  font-weight: bold;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+  flex-shrink: 0;
+}
+
+#log-entries {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Scrollbar styling */
+#log-entries::-webkit-scrollbar {
+  width: 6px;
+}
+#log-entries::-webkit-scrollbar-track {
+  background: #1a3c2a;
+  border-radius: 3px;
+}
+#log-entries::-webkit-scrollbar-thumb {
+  background: #4a7a5c;
+  border-radius: 3px;
+}
+
+.log-toggle-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  margin-left: auto;
+  background: #3a7a5c;
+  color: #f5d442;
+  flex-shrink: 0;
+}
+
+.log-toggle-btn:hover {
+  background: #4a9a6c;
+}
+
+/* ---- Action Card ---- */
+.action-card {
+  background: #26382b;
+  border-left: 3px solid #4a7a5c;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+/* Action type accent colors */
+.action-card.action-draw    { border-left-color: #4a9a6c; }
+.action-card.action-meld    { border-left-color: #f5d442; }
+.action-card.action-add     { border-left-color: #bfc93e; }
+.action-card.action-buy     { border-left-color: #e67e22; }
+.action-card.action-discard { border-left-color: #8a8a8a; }
+.action-card.action-new     { border-left-color: #27ae60; }
+.action-card.action-over    { border-left-color: #f5d442; }
+
+.action-player {
+  color: #f5d442;
+  font-weight: bold;
+  font-size: 0.8rem;
+}
+
+.action-meta {
+  color: #bfc93e;
+  font-size: 0.7rem;
+}
+
+.action-detail {
+  color: #d8c8a8;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+/* ---- Collapsed Panel (toggled by btn-toggle-log) ---- */
+#activity-log.collapsed {
+  align-items: flex-end;
+}
+
+#activity-log.collapsed .log-panel-inner {
+  display: none;
+}
+
+#activity-log.collapsed .log-toggle-btn {
+  border-radius: 50%;
+  cursor: pointer;
+}

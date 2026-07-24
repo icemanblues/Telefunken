@@ -1,4 +1,4 @@
-import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit } from '../game.js';
+import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry } from '../game.js';
 import { isValidSet, isValidRun } from '../game.js';
 
 describe('Card', () => {
@@ -1894,5 +1894,281 @@ describe('sortBySuit', () => {
 
   test('handles empty input', () => {
     expect(sortBySuit([])).toEqual([]);
+  });
+});
+
+// --- ActionLogEntry Tests ---
+
+describe('ActionLogEntry', () => {
+  test('stores player name', () => {
+    const entry = new ActionLogEntry('Player 1', 3, 'Started Turn', 'drew a card');
+    expect(entry.player).toBe('Player 1');
+  });
+
+  test('stores deal number', () => {
+    const entry = new ActionLogEntry('Player 1', 42, 'Started Turn');
+    expect(entry.dealNumber).toBe(42);
+  });
+
+  test('stores action name', () => {
+    const entry = new ActionLogEntry('CPU 1', 1, 'Played Set');
+    expect(entry.action).toBe('Played Set');
+  });
+
+  test('stores detail text', () => {
+    const entry = new ActionLogEntry('Player 1', 1, 'Meld', '4 cards in set');
+    expect(entry.detail).toBe('4 cards in set');
+  });
+
+  test('has timestamp property', () => {
+    const entry = new ActionLogEntry('Player 1', 1, 'Test');
+    expect(typeof entry.timestamp).toBe('number');
+    expect(Date.now() - entry.timestamp).toBeLessThan(1000);
+  });
+
+  test('detail defaults to empty string', () => {
+    const entry = new ActionLogEntry('Player 1', 1, 'Test');
+    expect(entry.detail).toBe('');
+  });
+
+  test('allows game title as player for special events', () => {
+    const entry = new ActionLogEntry('Telefunken — Peru v1', 0, 'New Game', 'test');
+    expect(entry.player).toBe('Telefunken — Peru v1');
+  });
+});
+
+// --- _lastAction Instrumentation Tests ---
+
+describe('_lastAction on game actions', () => {
+  test('drawFromStock sets _lastAction with player name and "Started Turn" action', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Deal 1: deal starts in discard, AI discards first
+    // Push game forward to state where draw can be tested
+    g.state = 'draw';
+    const playerIdx = g.currentPlayerIndex;
+    const result = g.drawFromStock(playerIdx);
+    expect(result).toBe(true);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.player).toBe(g.players[playerIdx].name);
+    expect(g._lastAction.action).toBe('Started Turn');
+    expect(g._lastAction.detail).toContain('drew a card');
+    expect(g._lastAction.dealNumber).toBe(1);
+  });
+
+  test('buyDiscard sets _lastAction with "Bought Card" action and extra card count', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Prepare: need a discard in pile, player has chips and hasn't melded
+    const c0 = new Card('temp1', 'hearts', 3);
+    g.discardPile.push(c0.id);
+    g.allCards[c0.id] = c0;
+    g.state = 'buyDiscard';
+    g.currentPlayerIndex = 0;
+
+    g.buyDiscard(0);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Bought Card');
+    expect(g._lastAction.player).toBe('Alice');
+  });
+
+  test('playMeld as set sets _lastAction with "Played Set" and card count', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Give AI player (index 1) a valid set: 3 cards of same rank
+    const c1 = new Card('s1', 'hearts', 7);
+    const c2 = new Card('s2', 'diamonds', 7);
+    const c3 = new Card('s3', 'clubs', 7);
+    g.allCards[c1.id] = c1;
+    g.allCards[c2.id] = c2;
+    g.allCards[c3.id] = c3;
+    g.players[1].hand.push(c1.id, c2.id, c3.id);
+
+    // Set state to meld and target player as current
+    g.state = 'meld';
+    g.currentPlayerIndex = 1;
+    g.players[1].hasMelded = true; // has already met contract so this isn't first meld
+
+    g.playMeld(1, [c1.id, c2.id, c3.id], 'set');
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Played Set');
+    expect(g._lastAction.detail).toBe('3 cards');
+  });
+
+  test('playMeld as run sets _lastAction with "Played Run" and card count', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Give AI player (index 1) a valid run of 3 consecutive same-suit cards
+    const c1 = new Card('r1', 'spades', 5);
+    const c2 = new Card('r2', 'spades', 6);
+    const c3 = new Card('r3', 'spades', 7);
+    g.allCards[c1.id] = c1;
+    g.allCards[c2.id] = c2;
+    g.allCards[c3.id] = c3;
+    g.players[1].hand.push(c1.id, c2.id, c3.id);
+
+    g.state = 'meld';
+    g.currentPlayerIndex = 1;
+    g.players[1].hasMelded = true;
+
+    g.playMeld(1, [c1.id, c2.id, c3.id], 'run');
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Played Run');
+    expect(g._lastAction.detail).toBe('3 cards');
+  });
+
+  test('addToExistingMeld sets _lastAction with "Add to Meld" and card count', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Create a table meld for player 0
+    const mc1 = new Card('a1', 'hearts', 2);
+    const mc2 = new Card('a2', 'hearts', 3);
+    const mc3 = new Card('a3', 'hearts', 4);
+    g.allCards[mc1.id] = mc1;
+    g.allCards[mc2.id] = mc2;
+    g.allCards[mc3.id] = mc3;
+    const meldObj = new Meld('run', 0, [mc1, mc2, mc3]);
+    g.tableMelds.push(meldObj);
+
+    // Add a card to it (4 of hearts)
+    const addCard = new Card('add1', 'hearts', 5);
+    g.allCards[addCard.id] = addCard;
+    g.players[0].hand.push(addCard.id);
+
+    g.state = 'meld';
+    g.currentPlayerIndex = 0;
+    g.players[0].hasMelded = true;
+
+    g.addToExistingMeld(0, 0, [addCard.id]);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Add to Meld');
+    expect(g._lastAction.detail).toBe('1 card');
+  });
+
+  test('discardCard sets _lastAction with "Discarded" and card info (non-final)', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    const discardingPlayerIdx = g.currentPlayerIndex;
+    const c1 = new Card('d1', 'hearts', 6);
+    g.allCards[c1.id] = c1;
+    g.players[discardingPlayerIdx].hand.push(c1.id);
+
+    g.discardCard(discardingPlayerIdx, c1.id);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Discarded');
+    expect(g._lastAction.player).toBe(g.players[discardingPlayerIdx].name);
+  });
+
+  test('discardCard sets _lastAction with "went out" when hand reaches zero', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Remove all existing cards from current player's hand, leaving just one card to discard
+    const lastCard = new Card('lc1', 'spades', 9);
+    g.allCards[lastCard.id] = lastCard;
+    g.players[g.currentPlayerIndex].hand = [lastCard.id];
+
+    g.discardCard(g.currentPlayerIndex, lastCard.id);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Discarded');
+    expect(g._lastAction.detail).toContain('went out');
+    expect(g.state).toBe('dealover');
+  });
+
+  test('endGame sets _lastAction with "Game Over", winner name, and standings', () => {
+    const g = new Game('Alice');
+    // Set up scores that produce a clear winner
+    g.players[0].score = 50;
+    g.players[1].score = 30;
+    g.players[2].score = 60;
+    g.players[3].score = 20;
+
+    g.endGame();
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.action).toBe('Game Over');
+    expect(g._lastAction.player).toBe('Telefunken — Peru v1');
+    expect(g._lastAction.detail).toContain('wins!');
+    expect(g._lastAction.dealNumber).toBe(1);
+    // Verify standings order (Player 4 score=20 should be first, then Player 2 =30, etc.)
+    const leaderboard = g.getLeaderboard();
+    const winnerId = leaderboard[0].player.id;
+    expect(g._lastAction.detail).toContain(g.players[winnerId].name);
+  });
+
+  test('_lastAction is null on a fresh game before any action', () => {
+    const g = new Game('Bob');
+    expect(g._lastAction).toBeNull();
+  });
+
+  test('_lastAction survives state changes until consumed by handler', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Trigger an action that sets _lastAction
+    g.state = 'draw';
+    const card = new Card('h1', 'diamonds', 5);
+    g.allCards[card.id] = card;
+    g.drawFromStock(0);
+
+    expect(g._lastAction).not.toBeNull();
+    const savedAction = g._lastAction;
+    // Simulate handler consuming it
+    g._lastAction = null;
+    expect(g._lastAction).toBeNull();
+    expect(savedAction.action).toBe('Started Turn');
+  });
+
+  test('action log entry preserves deal number through a full turn cycle', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    g.state = 'draw';
+
+    const card = new Card('tc1', 'clubs', 8);
+    g.allCards[card.id] = card;
+    g.drawFromStock(g.currentPlayerIndex);
+
+    expect(g._lastAction.dealNumber).toBe(1);
+    expect(g._lastAction.action).toBe('Started Turn');
+  });
+
+  test('_lastAction for AI player action contains correct AI name', () => {
+    const g = new Game('Alice');
+    g.startDeal();
+    // Manually set deal number so that dealer is an AI (deal 2 → dealer index = 1)
+    g.dealNumber = 2;
+    g.players.forEach(p => { p.hand = []; p.hasMelded = false; });
+    g.tableMelds = [];
+    g.discardPile = [];
+    g.deck = new Deck();
+    g.deck.shuffle();
+    // Deal 11 cards to each player
+    for (let i = 0; i < 4; i++) {
+      for (let j = 0; j < 11; j++) {
+        const card = g.deck.draw();
+        if (card) {
+          g.players[i].hand.push(card.id);
+          g.allCards[card.id] = card;
+        }
+      }
+    }
+    // Dealer (index 1, AI) gets 12th card
+    const dealerIdx = (g.dealNumber - 1) % 4;
+    const dealerCard = g.deck.draw();
+    if (dealerCard) {
+      g.players[dealerIdx].hand.push(dealerCard.id);
+      g.allCards[dealerCard.id] = dealerCard;
+    }
+    g.state = 'discard';
+    g.currentPlayerIndex = dealerIdx;
+
+    // Verify dealer is AI
+    expect(g.players[dealerIdx].isHuman).toBe(false);
+    expect(g.currentPlayerIndex).toBe(dealerIdx);
+
+    const c1 = new Card('x1', 'hearts', 10);
+    g.allCards[c1.id] = c1;
+    g.players[dealerIdx].hand.push(c1.id);
+
+    g.discardCard(dealerIdx, c1.id);
+    expect(g._lastAction).not.toBeNull();
+    expect(g._lastAction.player).toBe(g.players[dealerIdx].name);
   });
 });

@@ -159,6 +159,16 @@ export class Meld {
   }
 }
 
+export class ActionLogEntry {
+  constructor(player, dealNumber, actionName, detail = '') {
+    this.player = player;
+    this.dealNumber = dealNumber;
+    this.action = actionName;
+    this.detail = detail;
+    this.timestamp = Date.now();
+  }
+}
+
 // --- Player Class ---
 
 const CONTRACTS = [
@@ -205,6 +215,7 @@ export class Game {
       onMessage: null,
       delay: typeof setTimeout !== 'undefined' ? () => {} : null,
     };
+    this._lastAction = null;
   }
 
   reset(newName) {
@@ -222,6 +233,7 @@ export class Game {
     this.tableMelds = [];
     this.allCards = {};
     this.discardBuyerPromptIndex = -1;
+    this._lastAction = null;
   }
 
   startGame() {
@@ -287,6 +299,7 @@ export class Game {
     player.hand.push(card.id);
     this.allCards[card.id] = card;
     this.state = 'meld';
+    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Started Turn', 'drew a card from stock');
     this.publish('stateChanged');
     return true;
   }
@@ -317,6 +330,7 @@ export class Game {
     if (this.state === 'buyDiscard') {
       this.state = 'meld';
     }
+    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Bought Card', `bought a card and drew ${extraDraws}${extraDraws > 1 ? ' extra' : ''} cards`);
     this.publish('stateChanged');
     return true;
   }
@@ -363,6 +377,8 @@ export class Game {
     player.hand = player.hand.filter(id => !cardIds.includes(id));
     player.hasMelded = true;
 
+    const meldTypeText = type === 'set' ? 'Played Set' : 'Played Run';
+    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, meldTypeText, `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
     this.publish('stateChanged');
     return true;
   }
@@ -416,6 +432,7 @@ export class Game {
       player.hand = player.hand.filter(id => id !== c.id);
     }
 
+    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Add to Meld', `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
     this.publish('stateChanged');
     return true;
   }
@@ -432,6 +449,8 @@ export class Game {
     if (player.hand.length === 0) {
       this.state = 'dealover';
       this.scoreDeal();
+      const discardedCard = this.allCards[cardId];
+      this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Discarded', `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} — went out!`);
       this.publish('stateChanged');
       return true;
     }
@@ -458,6 +477,8 @@ export class Game {
         this.state = 'buyDiscard';
       }
     }
+    const discardedCard = this.allCards[cardId];
+    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Discarded', `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} (${player.hand.length} cards remaining)`);
     this.publish('stateChanged');
     return true;
   }
@@ -503,6 +524,9 @@ export class Game {
       player.score -= player.chips * 10;
     }
     this.state = 'gameover';
+    const leaderboard = this.getLeaderboard();
+    const winnerName = leaderboard[0]?.player?.name ?? 'TBD';
+    this._lastAction = new ActionLogEntry('Telefunken — Peru v1', this.dealNumber, 'Game Over', `${winnerName} wins! Final standings: ${leaderboard.map(e => `${e.rank}. ${e.player.name}`).join(', ')}`);
     this.publish('stateChanged');
   }
 
@@ -896,6 +920,65 @@ if (typeof window !== 'undefined') {
   let discardMode = false;
   let currentSortMode = null;
 
+  // Activity log state
+  let actionLogEntries = [];
+  const MAX_LOG_ENTRIES = 200;
+
+  function getActionCardClass(entry) {
+    if (entry.action.includes('New Game')) return 'action-new';
+    if (entry.action === 'Game Over') return 'action-over';
+    if (entry.action.includes('Started Turn')) return 'action-draw';
+    if (entry.action.includes('Played Set')) return 'action-meld';
+    if (entry.action.includes('Played Run')) return 'action-meld';
+    if (entry.action === 'Add to Meld') return 'action-add';
+    if (entry.action === 'Bought Card') return 'action-buy';
+    if (entry.action === 'Discarded') return 'action-discard';
+    return '';
+  }
+
+  function renderActivityLog() {
+    const logEntries = document.getElementById('log-entries');
+    if (!logEntries) return;
+    logEntries.innerHTML = '';
+
+    for (const entry of actionLogEntries) {
+      const card = document.createElement('div');
+      card.className = `action-card ${getActionCardClass(entry)} card-enter`;
+
+      const playerEl = document.createElement('span');
+      playerEl.className = 'action-player';
+      playerEl.textContent = entry.player;
+
+      const metaEl = document.createElement('span');
+      metaEl.className = 'action-meta';
+      if (entry.dealNumber > 0) {
+        metaEl.textContent = `Round ${entry.dealNumber}`;
+      } else {
+        metaEl.textContent = '';
+      }
+
+      const detailEl = document.createElement('span');
+      detailEl.className = 'action-detail';
+      detailEl.textContent = entry.detail || entry.action;
+
+      card.appendChild(playerEl);
+      if (metaEl.textContent) card.insertBefore(metaEl, playerEl.nextSibling ? playerEl.nextSibling : null);
+      card.appendChild(detailEl);
+      logEntries.appendChild(card);
+    }
+
+    // Scroll to bottom (newest at bottom)
+    logEntries.scrollTop = logEntries.scrollHeight;
+  }
+
+  function pushActionLogEntry(entry) {
+    actionLogEntries.push(entry);
+    if (actionLogEntries.length > MAX_LOG_ENTRIES) {
+      actionLogEntries.shift();
+    }
+    renderActivityLog();
+  }
+
   // Game instance (hoisted for initUI + cardElement closure)
   let game = null;
 
@@ -1151,6 +1234,18 @@ if (typeof window !== 'undefined') {
     showNewGameOverlay();
 
 
+    // ---- Activity Log toggle ----
+    const logPanel = document.getElementById('activity-log');
+    if (logPanel) {
+      logPanel.classList.remove('collapsed');  // panel starts expanded
+    }
+
+    document.getElementById('btn-toggle-log').addEventListener('click', () => {
+      if (!logPanel) return;
+      logPanel.classList.toggle('collapsed');
+    });
+
+
     // Wire buttons to game methods
     document.getElementById('btn-buy').addEventListener('click', () => {
       game.buyDiscard(0);
@@ -1310,6 +1405,13 @@ if (typeof window !== 'undefined') {
 
     function onStateChanged() {
       renderBoard(game);
+
+      // Process any pending action log entry
+      if (game._lastAction) {
+        pushActionLogEntry(game._lastAction);
+        game._lastAction = null;
+      }
+
       if (game.state === 'dealover') {
         // Auto-advance to next deal after a short delay for UX
         setTimeout(() => {
@@ -1336,6 +1438,11 @@ if (typeof window !== 'undefined') {
     const name = (input ? input.value : '') || 'Player 1';
     game.playerName = name.trim() || 'Player 1';
     game.players[0].name = game.playerName;
+
+    // Log new game event
+    const allPlayers = game.players.map(p => p.name).join(', ');
+    pushActionLogEntry(new ActionLogEntry('Telefunken — Peru v1', 0, 'New Game', `Players: ${allPlayers}`));
+
     const overlay = document.getElementById('new-game-overlay');
     if (overlay) overlay.style.display = 'none';
     renderBoard(game);
