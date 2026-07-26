@@ -2,10 +2,10 @@ import js from "@eslint/js";
 import globals from "globals";
 
 export default [
-  { ignores: ["node_modules/**"] },
+  { ignores: ["node_modules/**", "dist/**"] },
   js.configs.recommended,
   {
-    files: ["**/*.js"],
+    files: ["**/*.js", "**/*.ts"],
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "module",
