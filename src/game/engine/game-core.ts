@@ -1,248 +1,15 @@
-// Telefunken Peru v1 — Game Logic (ES Module)
-
-export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades' | 'joker';
-export type CardRank = number | 'joker';
-export type MeldType = 'set' | 'run';
-export type GameState = 'init' | 'discard' | 'draw' | 'meld' | 'buyDiscard' | 'dealover' | 'gameover';
-export interface Contract { count: number; minSize: number; }
-
-// --- Card Class ---
-
-export class Card {
-  id: string;
-  suit: Suit;
-  rank: CardRank;
-
-  constructor(id: string, suit: Suit, rank: CardRank) {
-    this.id = id;
-    this.suit = suit;
-    this.rank = rank;
-  }
-
-  get pointValue(): number {
-    if (this.suit === 'joker') return 20;
-    if (typeof this.rank !== 'number') return 20; // 'joker' rank
-    if (this.rank >= 3 && this.rank <= 9) return this.rank;
-    if (this.rank >= 10 && this.rank <= 13) return 10;
-    if (this.rank === 14) return 15;
-    if (this.rank === 2) return 20;
-    return 0;
-  }
-
-  get isJoker(): boolean {
-    return this.suit === 'joker';
-  }
-}
-
-// --- Deck Class ---
-
-export class Deck {
-  cards: Card[] = [];
-
-  constructor() {
-    let idx = 0;
-    const suits: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
-    for (let deckNum = 0; deckNum < 2; deckNum++) {
-      for (const suit of suits) {
-        for (let rank = 2; rank <= 14; rank++) {
-          this.cards.push(new Card(`c${idx++}`, suit, rank));
-        }
-      }
-    }
-    for (let j = 0; j < 4; j++) {
-      this.cards.push(new Card(`j${j}`, 'joker', 'joker'));
-    }
-  }
-
-  get remaining(): number {
-    return this.cards.length;
-  }
-
-  shuffle(): void {
-    const arr = this.cards;
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-  }
-
-  draw(): Card | null {
-    if (this.cards.length === 0) return null;
-    const card = this.cards.pop();
-    return card ?? null;
-  }
-}
-
-// --- Pure Validators ---
-
-export function isValidSet(cards: readonly Card[]): boolean {
-  if (!Array.isArray(cards) || cards.length < 3) return false;
-  for (const c of cards) {
-    if (c.isJoker) return false;
-  }
-  const firstRank = cards[0].rank;
-  if (typeof firstRank !== 'number') return false;
-  return cards.every(c => typeof c.rank === 'number' && c.rank === firstRank);
-}
-
-export function isValidRun(naturals: readonly Card[], wildCards?: ReadonlyArray<Card>): boolean {
-  const naturalCount = naturals.length;
-  const wildCardList = wildCards ?? [];
-
-  if (naturalCount === 0) return false;
-  if (naturalCount < wildCardList.length) return false;
-
-  const suits = new Set(naturals.map(c => c.suit));
-  if (suits.size !== 1) return false;
-
-  const uniqueSize = new Set(naturals.map(c => c.rank)).size;
-  if (uniqueSize !== naturalCount) return false;
-
-  const totalLen = naturalCount + wildCardList.length;
-  if (totalLen < 3) return false;
-  if (totalLen > 13) return false;
-
-  const uniqueRanks: number[] = [...new Set(naturals.map(c => c.rank))].filter((r): r is number => typeof r === 'number');
-  for (let start = 2; start <= 14; start++) {
-    let fits = true;
-    for (const r of uniqueRanks) {
-      const posNat = r - 2;
-      const posStart = start - 2;
-      const dist = (posNat - posStart + 13) % 13;
-      if (dist >= totalLen) { fits = false; break; }
-    }
-    if (fits) return true;
-  }
-
-  return false;
-}
-
-// --- Sort Helpers (testable, pure) ---
-
-const SUIT_ORDER: Readonly<Record<string, number>> = { diamonds: 1, clubs: 2, hearts: 3, spades: 4 };
-
-export function sortByRank(cards: readonly Card[]): Card[] {
-  return [...cards].sort((a, b) => {
-    if (a.isJoker && !b.isJoker) return 1;
-    if (!a.isJoker && b.isJoker) return -1;
-    const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
-    const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
-    if (aRank !== bRank) return aRank - bRank;
-    if (a.suit !== b.suit) return (SUIT_ORDER[a.suit] ?? 0) - (SUIT_ORDER[b.suit] ?? 0);
-    return a.id.localeCompare(b.id);
-  });
-}
-
-export function sortBySuit(cards: readonly Card[]): Card[] {
-  return [...cards].sort((a, b) => {
-    if (a.isJoker && !b.isJoker) return 1;
-    if (!a.isJoker && b.isJoker) return -1;
-    if (a.suit !== b.suit) return (SUIT_ORDER[a.suit] ?? 0) - (SUIT_ORDER[b.suit] ?? 0);
-    const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
-    const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
-    if (aRank !== bRank) return aRank - bRank;
-    return a.id.localeCompare(b.id);
-  });
-}
-
-// --- Meld Class ---
-
-export class Meld {
-  type: MeldType;
-  owner: number;
-  cards: Card[];
-  isContract: boolean;
-
-  constructor(type: MeldType, owner: number, cards: readonly Card[]) {
-    this.type = type;
-    this.owner = owner;
-    this.cards = [...cards];
-    this.isContract = false;
-  }
-
-  add(card: Card): void {
-    this.cards.push(card);
-  }
-
-  removeJoker(cardId: string): boolean {
-    const idx = this.cards.findIndex(c => c.id === cardId);
-    if (idx !== -1 && this.cards[idx].isJoker) {
-      this.cards.splice(idx, 1);
-      return true;
-    }
-    return false;
-  }
-
-  get naturalCount(): number {
-    return this.cards.filter(c => !c.isJoker).length;
-  }
-
-  get wildCount(): number {
-    return this.cards.filter(c => c.isJoker).length;
-  }
-}
-
-export class ActionLogEntry {
-  player: string;
-  dealNumber: number;
-  action: string;
-  detail: string;
-  timestamp: number;
-
-  constructor(player: string, dealNumber: number, actionName: string, detail: string = '') {
-    this.player = player;
-    this.dealNumber = dealNumber;
-    this.action = actionName;
-    this.detail = detail;
-    this.timestamp = Date.now();
-  }
-}
-
-// --- Player Class ---
-
-export const CONTRACTS: Contract[] = [
-  { count: 2, minSize: 3 },
-  { count: 1, minSize: 4 },
-  { count: 2, minSize: 4 },
-  { count: 1, minSize: 5 },
-  { count: 2, minSize: 5 },
-  { count: 1, minSize: 6 },
-];
-
-export class Player {
-  id: number;
-  name: string;
-  isHuman: boolean;
-  hand: string[] = [];
-  chips: number = 6;
-  score: number = 0;
-  hasMelded: boolean = false;
-
-  constructor(id: number, name?: string) {
-    this.id = id;
-    this.name = name ?? (id === 0 ? 'You' : `CPU ${id}`);
-    this.isHuman = id === 0;
-  }
-
-  get handCardCount(): number {
-    return this.hand.length;
-  }
-}
-
-// --- Game State Machine ---
-
-export interface StateEvent {
-  dealNumber?: number;
-  phase?: GameState;
-  currentPlayerIndex?: number;
-  [key: string]: unknown;
-}
-
-export interface MessagesOut {
-  onStateChanged?: (event: StateEvent) => void;
-  onMessage?: (msg: string) => void;
-  delay?: () => void;
-}
+import type { Suit, CardRank, MeldType, GameState, Contract, StateEvent, MessagesOut } from '../types.js';
+import { Card } from '../card.js';
+import { Deck } from '../deck.js';
+import { Meld } from '../meld.js';
+import { isValidSet, isValidRun } from '../validators.js';
+import { ActionLogEntry } from '../activity-log/entry.js';
+import { ActivityLog } from '../activity-log/log-manager.js';
+import type { ActionEventType } from '../activity-log/log-manager.js';
+import { Player } from '../players/player.js';
+import { CONTRACTS } from '../contracts.js';
+import * as ai from './ai.js';
+import * as scoreboard from './scoreboard.js';
 
 export class Game {
   playerName: string;
@@ -260,11 +27,19 @@ export class Game {
     onMessage: undefined,
     delay: typeof setTimeout !== 'undefined' ? () => {} : undefined,
   };
+  activityLog: ActivityLog = new ActivityLog();
+  
+  // Keep _lastAction for backward compatibility - maps to last entry in activityLog
   _lastAction: ActionLogEntry | null = null;
 
   constructor(playerName?: string) {
     this.playerName = playerName || 'Player 1';
     this.players = [new Player(0, this.playerName), new Player(1), new Player(2), new Player(3)];
+  }
+
+  logAction(eventType: ActionEventType, player: string, detail: string): void {
+    const entry = this.activityLog.push(eventType, player, this.dealNumber, detail);
+    this._lastAction = entry;
   }
 
   reset(newName?: string): void {
@@ -282,6 +57,7 @@ export class Game {
     this.tableMelds = [];
     this.allCards = {};
     this.discardBuyerPromptIndex = -1;
+    this.activityLog.clear();
     this._lastAction = null;
   }
 
@@ -344,7 +120,7 @@ export class Game {
     player.hand.push(card.id);
     this.allCards[card.id] = card;
     this.state = 'meld';
-    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Started Turn', 'drew a card from stock');
+    this.logAction('DrawStock', player.name, 'drew a card from stock');
     this.publish('stateChanged');
     return true;
   }
@@ -371,7 +147,7 @@ export class Game {
     if (this.state === 'buyDiscard') {
       this.state = 'meld';
     }
-    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Bought Card', `bought a card and drew ${extraDraws}${extraDraws > 1 ? ' extra' : ''} cards`);
+    this.logAction('BuyDiscard', player.name, `bought a card and drew ${extraDraws}${extraDraws > 1 ? ' extra' : ''} cards`);
     this.publish('stateChanged');
     return true;
   }
@@ -415,8 +191,8 @@ export class Game {
     player.hand = player.hand.filter(id => !cardIds.includes(id));
     player.hasMelded = true;
 
-    const meldTypeText = type === 'set' ? 'Played Set' : 'Played Run';
-    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, meldTypeText, `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
+    const logEvent: ActionEventType = type === 'set' ? 'PlayMeldSet' : 'PlayMeldRun';
+    this.logAction(logEvent, player.name, `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
     this.publish('stateChanged');
     return true;
   }
@@ -436,7 +212,7 @@ export class Game {
     }
 
     let canAddAll = true;
-      if (meld.type === 'set') {
+    if (meld.type === 'set') {
       const meldNaturals = meld.cards.filter(c => !c.isJoker) as Card[];
       for (const c of cards) {
         if (c.isJoker || typeof c.rank !== 'number' || c.rank !== meldNaturals[0].rank) {
@@ -469,7 +245,7 @@ export class Game {
       player.hand = player.hand.filter(id => id !== c.id);
     }
 
-    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Add to Meld', `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
+    this.logAction('AddToMeld', player.name, `${cardIds.length} card${cardIds.length > 1 ? 's' : ''}`);
     this.publish('stateChanged');
     return true;
   }
@@ -486,7 +262,7 @@ export class Game {
       this.state = 'dealover';
       this.scoreDeal();
       const discardedCard = this.allCards[cardId];
-      this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Discarded', `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} — went out!`);
+      this.logAction('WentOut', player.name, `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} — went out!`);
       this.publish('stateChanged');
       return true;
     }
@@ -509,7 +285,7 @@ export class Game {
       }
     }
     const discardedCard = this.allCards[cardId];
-    this._lastAction = new ActionLogEntry(player.name, this.dealNumber, 'Discarded', `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} (${player.hand.length} cards remaining)`);
+    this.logAction('Discard', player.name, `${discardedCard ? discardedCard.rank + ' of ' + discardedCard.suit : cardId} (${player.hand.length} cards remaining)`);
     this.publish('stateChanged');
     return true;
   }
@@ -536,27 +312,16 @@ export class Game {
   }
 
   scoreDeal(): void {
-    for (const player of this.players) {
-      if (player.hand.length === 0) continue;
-      let penalty = 0;
-      for (const cardId of player.hand) {
-        const card = this.allCards[cardId];
-        if (card) penalty += card.pointValue;
-      }
-      player.score += penalty;
-    }
+    scoreboard.scoreDeal(this.players, this.allCards);
     this.state = 'dealover';
     this.publish('stateChanged');
   }
 
   endGame(): void {
-    for (const player of this.players) {
-      player.score -= player.chips * 10;
-    }
+    const winnerName = scoreboard.endGame(this.players);
     this.state = 'gameover';
-    const leaderboard = this.getLeaderboard();
-    const winnerName = leaderboard[0]?.player?.name ?? 'TBD';
-    this._lastAction = new ActionLogEntry('Telefunken — Peru v1', this.dealNumber, 'Game Over', `${winnerName} wins! Final standings: ${leaderboard.map(e => `${e.rank}. ${e.player.name}`).join(', ')}`);
+    const leaderboard = scoreboard.getLeaderboard(this.players);
+    this.logAction('GameOver', 'Telefunken — Peru v1', `${winnerName} wins! Final standings: ${leaderboard.map(e => `${e.rank}. ${e.player.name}`).join(', ')}`);
     this.publish('stateChanged');
   }
 
@@ -614,130 +379,21 @@ export class Game {
   aiEvaluateMelds(playerId: number): Array<{ type: MeldType; cardIds: string[] }> {
     const player = this.players[playerId];
     if (!player || !player.hand.length) return [];
-    const result: Array<{ type: MeldType; cardIds: string[] }> = [];
-    const handIds = [...player.hand];
-
-    const rankGroups: Record<number, Card[]> = {};
-    const naturals = handIds.map(id => this.allCards[id]).filter(Boolean) as Card[];
-    for (const c of naturals) {
-      if (c.isJoker || typeof c.rank !== 'number') continue;
-      if (!rankGroups[c.rank]) rankGroups[c.rank] = [];
-      rankGroups[c.rank].push(c);
-    }
-
-    const meldedIds = new Set<string>();
-    for (const rank of Object.keys(rankGroups)) {
-      const group = rankGroups[parseInt(rank, 10)];
-      if (group.length >= 3) {
-        const ids = group.map(c => c.id);
-        result.push({ type: 'set', cardIds: ids });
-        for (const id of ids) meldedIds.add(id);
-      }
-    }
-
-    const remainingNaturals = naturals.filter(c => c.isJoker || meldedIds.has(c.id) || typeof c.rank === 'number');
-    if (!remainingNaturals.length) return result;
-
-    const suitGroups: Record<string, Card[]> = {};
-    for (const c of remainingNaturals) {
-      if (c.isJoker || typeof c.rank !== 'number') continue;
-      if (!suitGroups[c.suit]) suitGroups[c.suit] = [];
-      suitGroups[c.suit].push(c);
-    }
-
-    let sharedJokerPool = 0;
-    for (const id of handIds) {
-      const c = this.allCards[id];
-      if (c && c.isJoker) sharedJokerPool++;
-    }
-
-    for (const suit of Object.keys(suitGroups)) {
-      const group = suitGroups[suit];
-      if (!group.length) continue;
-      group.sort((a, b) => {
-        const aRank = typeof a.rank === 'number' ? a.rank : Infinity;
-        const bRank = typeof b.rank === 'number' ? b.rank : Infinity;
-        return aRank - bRank;
-      });
-
-      const used = new Set<string>();
-
-      for (let i = 0; i < group.length; i++) {
-        if (used.has(group[i].id)) continue;
-
-        let currentRun: Card[] = [group[i]];
-        used.add(group[i].id);
-        let lastRankNum: number;
-        if (typeof group[i].rank === 'number') {
-          lastRankNum = Number(group[i].rank);
-        } else {
-          lastRankNum = 0;
-        }
-
-        for (let j = i + 1; j < group.length; j++) {
-          const nextCard = group[j];
-          if (used.has(nextCard.id)) continue;
-          if (typeof nextCard.rank !== 'number') continue;
-
-          let rankNum: number;
-          if (typeof nextCard.rank === 'number') {
-            rankNum = Number(nextCard.rank);
-          } else {
-            rankNum = 0;
-          }
-          const gap = this.forwardRankDistance(lastRankNum, rankNum);
-          if (gap === 2) {
-            if (sharedJokerPool > 0) {
-              currentRun.push(nextCard);
-              used.add(nextCard.id);
-              lastRankNum = nextCard.rank;
-              sharedJokerPool--;
-            } else {
-              break;
-            }
-          } else if (gap > 2) {
-            break;
-          } else {
-            currentRun.push(nextCard);
-            used.add(nextCard.id);
-            lastRankNum = nextCard.rank;
-          }
-        }
-
-        const wildNeeded = this.countWildsForRun(currentRun);
-        if ((currentRun.length + wildNeeded) >= 3 && wildNeeded <= currentRun.length) {
-          result.push({ type: 'run', cardIds: currentRun.map(c => c.id) });
-          for (const c of currentRun) meldedIds.add(c.id);
-        }
-      }
-    }
-
-    return result;
+    
+    // Keep backward compat with MeldType typing used in tests
+    return ai.evaluateMelds([...player.hand], this.allCards, this.dealNumber);
   }
 
   forwardRankDistance(a: number, b: number): number {
-    const posA = ((a - 2) % 13 + 13) % 13;
-    const posB = ((b - 2) % 13 + 13) % 13;
-    return (posB - posA + 13) % 13;
+    return ai.forwardRankDistance(a, b);
   }
 
   countWildsForRun(naturals: readonly Card[]): number {
-    if (naturals.length < 2) return Infinity;
-    let wilds = 0;
-    for (let i = 1; i < naturals.length; i++) {
-      const a = naturals[i - 1].rank;
-      const b = naturals[i].rank;
-      if (typeof a !== 'number' || typeof b !== 'number') return Infinity;
-      const gap = this.forwardRankDistance(a, b);
-      if (gap > 2) return Infinity;
-      wilds += Math.max(0, gap - 1);
-    }
-    return wilds;
+    return ai.countWildsForRun(naturals);
   }
 
   isConsequencePossible(naturals: readonly Card[], maxWilds: number): boolean {
-    const needed = this.countWildsForRun(naturals);
-    return needed <= maxWilds && (naturals.length + Math.min(needed, maxWilds)) >= 3;
+    return ai.isConsequencePossible(naturals, maxWilds);
   }
 
   aiDiscard(playerId: number): string | null {
@@ -745,24 +401,7 @@ export class Game {
     if (!player || !player.hand.length) return null;
 
     const melds = this.aiEvaluateMelds(playerId);
-    const meldableIds = new Set<string>();
-    for (const m of melds) {
-      for (const id of m.cardIds) meldableIds.add(id);
-    }
-
-    let worstCardId: string | null = null;
-    let worstScore = -1;
-    for (const id of player.hand) {
-      const card = this.allCards[id];
-      if (!card) continue;
-      const score = meldableIds.has(id) ? 0 : card.pointValue;
-      if (score > worstScore || worstCardId === null) {
-        worstScore = score;
-        worstCardId = id;
-      }
-    }
-
-    return worstCardId;
+    return ai.aiDiscardSelection([...player.hand], this.allCards, melds);
   }
 
   aiWantsDiscard(playerId: number): boolean {
@@ -878,34 +517,21 @@ export class Game {
   advanceBuyDiscardPrompt(): void {
     if (this.discardBuyerPromptIndex < 0) return;
 
-    const prevIdx = this.discardBuyerPromptIndex;
-    const discarderIdx = (prevIdx - 1 + 4) % 4;
-    let nextIdx = (prevIdx + 1) % 4;
-    let loops = 0;
-    while (nextIdx !== discarderIdx && loops < 4) {
-      const p = this.players[nextIdx];
-      if (p.chips > 0 && !p.hasMelded) break;
-      nextIdx = (nextIdx + 1) % 4;
-      loops++;
-    }
-
-    if (nextIdx === discarderIdx || loops >= 4) {
+    const { newIndex, allDeclined } = ai.advanceBuyDiscardPrompt(this.players, 
+      ((this.discardBuyerPromptIndex - 1) + 4) % 4, 
+      this.discardBuyerPromptIndex);
+    
+    if (allDeclined || newIndex === null) {
       this.discardBuyerPromptIndex = -1;
       this.publish('stateChanged');
     } else {
-      this.discardBuyerPromptIndex = nextIdx;
+      this.discardBuyerPromptIndex = newIndex;
       this.publish('stateChanged');
     }
   }
 
   getLeaderboard(): Array<{ rank: number; player: Player; penaltyScore: number; chipBonus: number }> {
-    const sorted = [...this.players].sort((a, b) => a.score - b.score);
-    return sorted.map((player, rankIdx) => ({
-      rank: rankIdx + 1,
-      player,
-      penaltyScore: player.score,
-      chipBonus: player.chips * 10,
-    }));
+    return scoreboard.getLeaderboard(this.players);
   }
 
   getWinner(): Player | null {

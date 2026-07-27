@@ -1,5 +1,5 @@
-import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry } from '../src/game/game.js';
-import { isValidSet, isValidRun } from '../src/game/game.js';
+import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry } from '../src/game/index.js';
+import { isValidSet, isValidRun } from '../src/game/index.js';
 
 describe('Card', () => {
   test('creates a card with suit and rank', () => {

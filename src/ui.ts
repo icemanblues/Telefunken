@@ -1,6 +1,6 @@
-import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry } from './game/game.js';
-import type { Suit, CardRank, MeldType, GameState, Contract, StateEvent } from './game/game.js';
-import { CONTRACTS } from './game/game.js';
+import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry, ActivityLog } from './game/index.js';
+import type { Suit, CardRank, MeldType, GameState, Contract, StateEvent } from './game/index.js';
+import { CONTRACTS } from './game/index.js';
 
 if (typeof window !== 'undefined') {
   const suitSymbol: Record<string, string> = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660', joker: String.fromCodePoint(0x1F0CF) };
@@ -480,10 +480,14 @@ if (typeof window !== 'undefined') {
     function onStateChanged(event?: StateEvent): void {
       renderBoard(game);
 
-      if (game._lastAction) {
-        pushActionLogEntry(game._lastAction);
-        game._lastAction = null;
+      const newEntries = game.activityLog.entries.slice(actionLogEntries.length);
+      for (const entry of newEntries) {
+        actionLogEntries.push(entry);
+        if (actionLogEntries.length > MAX_LOG_ENTRIES) {
+          actionLogEntries.shift();
+        }
       }
+      renderActivityLog();
 
       if (game.state === 'dealover') {
         setTimeout(() => {
