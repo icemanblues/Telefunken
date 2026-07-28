@@ -1,4 +1,4 @@
-import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry } from '../src/game/index.js';
+import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, createSeededRng, parseSeed, ActionLogEntry } from '../src/game/index.js';
 import { isValidSet, isValidRun } from '../src/game/index.js';
 
 describe('Card', () => {
@@ -344,13 +344,14 @@ describe('Game', () => {
   });
 
   test('dealer gets 12 cards, others get 11', () => {
-    const g = new Game();
+    const g = new Game('TestDealer', 0);
     g.startDeal();
-    // Deal 1: dealer is player (1-1)%4 = 0
-    expect(g.currentPlayerIndex).toBe(0);
-    expect(g.players[0].hand.length).toBe(12);
-    for (let i = 1; i < 4; i++) {
-      expect(g.players[i].hand.length).toBe(11);
+    // Dealer has 12 cards, all other players have 11
+    expect(g.players[g.currentPlayerIndex].hand.length).toBe(12);
+    for (let i = 0; i < 4; i++) {
+      if (i !== g.currentPlayerIndex) {
+        expect(g.players[i].hand.length).toBe(11);
+      }
     }
   });
 
@@ -2170,5 +2171,219 @@ describe('_lastAction on game actions', () => {
     g.discardCard(dealerIdx, c1.id);
     expect(g._lastAction).not.toBeNull();
     expect(g._lastAction.player).toBe(g.players[dealerIdx].name);
+  });
+});
+
+// --- Seeded PRNG Tests ---
+
+describe('Seeded PRNG', () => {
+  test('createRng produces deterministic output for same seed', () => {
+    const rng1 = createSeededRng(42);
+    const rng2 = createSeededRng(42);
+    
+    expect(rng1()).toBe(rng2());
+    expect(rng1()).toBe(rng2());
+    expect(rng1()).toBe(rng2());
+  });
+
+  test('createRng produces different output for different seeds', () => {
+    const rng1 = createSeededRng(42);
+    const rng2 = createSeededRng(43);
+    
+    expect(rng1()).not.toBe(rng2());
+  });
+
+  test('createRng outputs are in range [0, 1)', () => {
+    const rng = createSeededRng(123);
+    for (let i = 0; i < 100; i++) {
+      const val = rng();
+      expect(val).toBeGreaterThanOrEqual(0);
+      expect(val).toBeLessThan(1);
+    }
+  });
+
+  test('parseSeed returns null for undefined', () => {
+    expect(parseSeed(undefined)).toBeNull();
+  });
+
+  test('parseSeed returns null for null', () => {
+    expect(parseSeed(null)).toBeNull();
+  });
+
+  test('parseSeed returns null for empty string', () => {
+    expect(parseSeed('')).toBeNull();
+  });
+
+  test('parseSeed returns null for whitespace-only string', () => {
+    expect(parseSeed('   ')).toBeNull();
+  });
+
+  test('parseSeed returns null for non-numeric string', () => {
+    expect(parseSeed('abc')).toBeNull();
+  });
+
+  test('parseSeed parses valid integer string', () => {
+    expect(parseSeed('42')).toBe(42);
+  });
+
+  test('parseSeed handles negative numbers (makes them positive)', () => {
+    expect(parseSeed('-100')).toBe(100);
+  });
+
+  test('parseSeed parses number input directly', () => {
+    expect(parseSeed(999)).toBe(999);
+  });
+
+  test('parseSeed handles large numbers with modulo wrapping', () => {
+    const result = parseSeed(4294967300); // > uint32 max, should wrap
+    expect(result).toBeLessThan(4294967296);
+  });
+
+  test('parseSeed handles NaN input', () => {
+    expect(parseSeed(NaN)).toBeNull();
+  });
+
+  test('parseSeed handles Infinity input', () => {
+    expect(parseSeed(Infinity)).toBeNull();
+  });
+});
+
+// --- Game Seed Integration Tests ---
+
+describe('Game Seeded Constructor', () => {
+  test('constructor without seed does not throw and has a seed property', () => {
+    const g = new Game();
+    expect(typeof g.seed).toBe('number');
+  });
+
+  test('constructor with string seed stores it correctly', () => {
+    const g = new Game('Alice', '999');
+    expect(g.seed).toBe(999);
+  });
+
+  test('constructor with number seed stores it correctly', () => {
+    const g = new Game('Bob', 12345);
+    expect(g.seed).toBe(12345);
+  });
+
+  test('constructor with blank seed generates random seed', () => {
+    const g = new Game('Alice', '');
+    expect(typeof g.seed).toBe('number');
+  });
+
+  test('constructor with null seed generates random seed', () => {
+    const g = new Game('Bob', null);
+    expect(typeof g.seed).toBe('number');
+  });
+
+  test('two games with same seed have same getDealerIndex for all deals', () => {
+    const g1 = new Game('Alice', 42);
+    const g2 = new Game('Alice', 42);
+    
+    for (let deal = 1; deal <= 6; deal++) {
+      expect(g1.getDealerIndex(deal)).toBe(g2.getDealerIndex(deal));
+    }
+  });
+
+  test('two games with different seeds may have different dealer indices', () => {
+    const g1 = new Game('Alice', 42);
+    const g2 = new Game('Bob', 999);
+    
+    // At least deal 1 should differ for these seeds
+    expect(g1.getDealerIndex(1)).not.toBe(g2.getDealerIndex(1));
+  });
+
+  test('dealer index is always between 0 and 3 inclusive', () => {
+    const g = new Game('Alice', 42);
+    for (let deal = 1; deal <= 6; deal++) {
+      const dealerIdx = g.getDealerIndex(deal);
+      expect(dealerIdx).toBeGreaterThanOrEqual(0);
+      expect(dealerIdx).toBeLessThan(4);
+    }
+  });
+
+  test('deal index rotation follows offset correctly', () => {
+    const g = new Game('Alice', 0); // offset that should give dealer 0 at deal 1 (or close)
+    
+    const indices: number[] = [];
+    for (let deal = 1; deal <= 6; deal++) {
+      indices.push(g.getDealerIndex(deal));
+    }
+    
+    // Each subsequent deal should be the next player
+    // (previous + 1) % 4
+    for (let i = 1; i < indices.length; i++) {
+      expect(indices[i]).toBe((indices[i - 1] + 1) % 4);
+    }
+  });
+
+  test('startDeal uses seeded RNG', () => {
+    const g1 = new Game('Alice', 999);
+    g1.startDeal();
+    const firstDealCards = [...g1.players].map(p => [...p.hand]);
+    
+    const g2 = new Game('Alice', 999);
+    g2.startDeal();
+    const secondDealCards = [...g2.players].map(p => [...p.hand]);
+    
+    // Same seed should produce the same card distribution
+    for (let player = 0; player < 4; player++) {
+      expect(firstDealCards[player]).toEqual(secondDealCards[player]);
+    }
+  });
+
+  test('two games with different seeds have different deal 1 card distributions', () => {
+    const g1 = new Game('Alice', 999);
+    g1.startDeal();
+    
+    const g2 = new Game('Bob', 888);
+    g2.startDeal();
+    
+    // Compare player 0's hand — should differ for different seeds
+    const h1 = g1.players[0].hand.slice().sort();
+    const h2 = g2.players[0].hand.slice().sort();
+    expect(h1).not.toEqual(h2);
+  });
+
+  test('Game with string seed "0" works', () => {
+    const g = new Game('Alice', '0');
+    expect(g.seed).toBe(0);
+    const idx1 = g.getDealerIndex(1);
+    g.startDeal();
+    
+    const g2 = new Game('Alice', 0);
+    expect(g2.seed).toBe(0);
+    const idx2 = g2.getDealerIndex(1);
+    g2.startDeal();
+    
+    // Both should have same seed and dealer
+    expect(idx1).toBe(idx2);
+  });
+
+  test('Game backward compat: no seed still works for play', () => {
+    const g = new Game('TestPlayer');
+    
+    expect(() => g.startDeal()).not.toThrow();
+    expect(g.state).toBe('discard');
+    expect(g.currentPlayerIndex).toBeGreaterThanOrEqual(0);
+    expect(g.currentPlayerIndex).toBeLessThan(4);
+  });
+
+  test('Deck with seed produces deterministic shuffle', () => {
+    const deck1 = new Deck(createSeededRng(777));
+    deck1.shuffle();
+    const cards1 = deck1.cards.map(c => c.id).slice();
+    
+    // Reset and reshuffle
+    const deck2 = new Deck(createSeededRng(777));
+    deck2.shuffle();
+    const cards2 = deck2.cards.map(c => c.id);
+    
+    expect(cards1).toEqual(cards2);
+  });
+
+  test('Deck without seed is non-deterministic (just doesn\'t throw)', () => {
+    const deck = new Deck();
+    expect(() => deck.shuffle()).not.toThrow();
   });
 });

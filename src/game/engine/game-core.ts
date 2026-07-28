@@ -10,9 +10,11 @@ import { Player } from '../players/player.js';
 import { CONTRACTS } from '../contracts.js';
 import * as ai from './ai.js';
 import * as scoreboard from './scoreboard.js';
+import { createRng, parseSeed } from '../utils.js';
 
 export class Game {
   playerName: string;
+  private readonly _seed: number | null;
   players: Player[];
   deck: Deck | null = null;
   discardPile: string[] = [];
@@ -32,9 +34,15 @@ export class Game {
   // Keep _lastAction for backward compatibility - maps to last entry in activityLog
   _lastAction: ActionLogEntry | null = null;
 
-  constructor(playerName?: string) {
+  constructor(playerName?: string, seed?: string | number | null) {
     this.playerName = playerName || 'Player 1';
+    const parsed = parseSeed(seed);
+    this._seed = parsed ?? Math.floor(Math.random() * 4294967296);
     this.players = [new Player(0, this.playerName), new Player(1), new Player(2), new Player(3)];
+  }
+
+  get seed(): number {
+    return this._seed!;
   }
 
   logAction(eventType: ActionEventType, player: string, detail: string): void {
@@ -59,6 +67,23 @@ export class Game {
     this.discardBuyerPromptIndex = -1;
     this.activityLog.clear();
     this._lastAction = null;
+  }
+
+  /** Cached dealer offset derived from seed at game construction. */
+  private _cachedDealerOffset: number | null = null;
+
+  /** Lazily compute (and cache) the first-dealer offset from the seed. */
+  private getDealerOffset(): number {
+    if (this._cachedDealerOffset === null) {
+      const rng = createRng(this._seed!);
+      this._cachedDealerOffset = Math.floor(rng() * 4);
+    }
+    return this._cachedDealerOffset;
+  }
+
+  /** Get the dealer player index for a given deal number. */
+  getDealerIndex(dealNum: number): number {
+    return (dealNum - 1 + this.getDealerOffset()) % 4;
   }
 
   startGame(): void {
@@ -87,7 +112,8 @@ export class Game {
     });
     this.tableMelds = [];
     this.discardPile = [];
-    this.deck = new Deck();
+    const rng = createRng((this._seed! + this.dealNumber) | 0);
+    this.deck = new Deck(rng);
     this.deck.shuffle();
     this.allCards = {};
     for (let i = 0; i < 4; i++) {
@@ -99,7 +125,7 @@ export class Game {
         }
       }
     }
-    this.currentPlayerIndex = (this.dealNumber - 1) % 4;
+    this.currentPlayerIndex = this.getDealerIndex(this.dealNumber);
     const dealerCard = this.deck.draw();
     if (dealerCard) {
       this.players[this.currentPlayerIndex].hand.push(dealerCard.id);

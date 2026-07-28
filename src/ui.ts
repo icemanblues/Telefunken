@@ -352,11 +352,21 @@ if (typeof window !== 'undefined') {
     }
   }
 
-  function renderGameOver(): void {
-    const overlay: HTMLElement | null = document.getElementById('gameover-container');
-    if (!overlay) return;
+   function renderGameOver(): void {
+     const overlay: HTMLElement | null = document.getElementById('gameover-container');
+     if (!overlay) return;
 
-    const tbody: HTMLTableSectionElement | null = document.getElementById('leaderboard-body') as HTMLTableSectionElement | null;
+     const seedDisplayEl: HTMLElement | null = document.getElementById('seed-display');
+     if (seedDisplayEl && game) {
+       const currentSeed: number | null = game.seed;
+       if (typeof currentSeed === 'number') {
+         seedDisplayEl.innerHTML = `<strong>Seed:</strong> &nbsp; ${currentSeed}`;
+         seedDisplayEl.style.textAlign = 'right';
+         seedDisplayEl.style.marginInlineEnd = '2rem';
+       }
+     } 
+
+     const tbody: HTMLTableSectionElement | null = document.getElementById('leaderboard-body') as HTMLTableSectionElement | null;
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -409,12 +419,17 @@ if (typeof window !== 'undefined') {
     return el;
   }
 
-  function initUI(gameInstance: Game): void {
-    function showNewGameOverlay(): void {
+   function initUI(gameInstance: Game): void {
+    let pendingReplaySeed: string | undefined;
+    function showNewGameOverlay(seed?: string): void {
       const overlay: HTMLElement | null = document.getElementById('new-game-overlay');
       if (!overlay) return;
       const input: HTMLInputElement | null = document.getElementById('player-name-input') as HTMLInputElement | null;
       if (input) input.value = gameInstance.playerName || 'Player 1';
+      const seedInput: HTMLInputElement | null = document.getElementById('player-seed-input') as HTMLInputElement | null;
+      if (seedInput) {
+        seedInput.value = seed?.trim() ? seed.trim() : '';
+      }
       overlay.style.display = 'flex';
     }
 
@@ -529,15 +544,17 @@ if (typeof window !== 'undefined') {
       });
     }
 
-    const btnPlayAgain: HTMLButtonElement | null = document.getElementById('btn-play-again') as HTMLButtonElement | null;
-    if (btnPlayAgain) {
-      btnPlayAgain.addEventListener('click', () => {
-        hideGameOver();
-        gameInstance.reset();
-        renderBoard(gameInstance);
-        setTimeout(() => showNewGameOverlay(), 200);
-      });
-    }
+     const btnPlayAgain: HTMLButtonElement | null = document.getElementById('btn-play-again') as HTMLButtonElement | null;
+     if (btnPlayAgain) {
+       btnPlayAgain.addEventListener('click', () => {
+         hideGameOver();
+         gameInstance.reset();
+         renderBoard(gameInstance);
+         const replaySeedEl: HTMLInputElement | null = document.getElementById('replay-seed-input') as HTMLInputElement | null;
+         const seedValue = replaySeedEl?.value ?? '';
+         setTimeout(() => showNewGameOverlay(seedValue || undefined), 200);
+       });
+     }
 
     let activeSortBtn: HTMLElement | null = null;
 
@@ -683,26 +700,47 @@ if (typeof window !== 'undefined') {
     }
   }
 
-  function onNewGameConfirm(): void {
-    const input: HTMLInputElement | null = document.getElementById('player-name-input') as HTMLInputElement | null;
-    const name: string = (input ? input.value : '') || 'Player 1';
-    if (!game) return;
+   function onNewGameConfirm(): void {
+     const nameInput: HTMLInputElement | null = document.getElementById('player-name-input') as HTMLInputElement | null;
+     const seedInput: HTMLInputElement | null = document.getElementById('player-seed-input') as HTMLInputElement | null;
+     const name: string = (nameInput ? nameInput.value : '') || 'Player 1';
+     const rawSeed: string = seedInput?.value ?? '';
+     
+     let parsedSeed: string | number | null = null;
+     if (rawSeed.trim()) {
+       const n = parseInt(rawSeed.trim(), 10);
+       if (!isNaN(n)) {
+         parsedSeed = Math.abs(Math.floor(n));
+       }
+     }
 
-    game.playerName = name.trim() || 'Player 1';
-    game.players[0].name = game.playerName;
-    
-    const allPlayers: string = game.players.map((p: Player): string => p.name).join(', ');
-    pushActionLogEntry(new ActionLogEntry('Telefunken — Peru v1', 0, 'New Game', `Players: ${allPlayers}`));
+     const prevGame: Game | null = game;
+     let overlayEl: HTMLElement | null | undefined;
+     
+     if (parsedSeed !== null) {
+       game = new Game(name.trim() || 'Player 1', parsedSeed);
+     } else {
+       game = new Game(name.trim() || 'Player 1');
+     }
 
-    const overlay: HTMLElement | null = document.getElementById('new-game-overlay');
-    if (overlay) overlay.style.display = 'none';
-    
-    renderBoard(game);
-    const currentGame: Game = game;
-    setTimeout(() => {
-      currentGame.startGame();
-    }, 300);
-  }
+     const currentGame: Game = game;
+     
+     if (prevGame) {
+       const allPlayers: string = game.players.map((p: Player): string => p.name).join(', ');
+       pushActionLogEntry(new ActionLogEntry('Telefunken — Peru v1', 0, 'New Game', `Players: ${allPlayers}`));
+     }
+
+    overlayEl = document.getElementById('new-game-overlay');
+     if (overlayEl) overlayEl.style.display = 'none';
+     
+     renderBoard(game);
+     
+     initUI(game);
+     
+     setTimeout(() => {
+       currentGame.startGame();
+     }, 300);
+   }
 
   function onGameReady(): void {
     const btn: HTMLButtonElement | null = document.getElementById('btn-confirm-new-game') as HTMLButtonElement | null;

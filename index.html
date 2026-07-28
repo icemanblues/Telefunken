@@ -93,6 +93,7 @@
     <!-- Game Over / Leaderboard overlay -->
     <div id="gameover-container" style="display:none;">
       <h2>Game Over — Final Standings</h2>
+      <div id="seed-display"></div>
       <table id="leaderboard-table">
         <thead>
           <tr>
@@ -105,7 +106,8 @@
         </thead>
         <tbody id="leaderboard-body"></tbody>
       </table>
-      <div id="winner-text"></div>
+      <div id="winner-text"></div><br>
+      <label>Seed (optional): <input type="text" id="replay-seed-input" placeholder="e.g. 42"></label>
       <button id="btn-play-again">Play Again</button>
     </div>
 
@@ -138,7 +140,8 @@
           </table>
           <p>Winner: lowest cumulative score. Unused chips give a bonus of -10 pts each.</p>
         </section>
-        <label>Your name: <input type="text" id="player-name-input" value="Player 1"></label>
+        <label>Your name: <input type="text" id="player-name-input" value="Player 1"></label><br>
+        <label>Seed (optional): <input type="text" id="player-seed-input" placeholder="e.g. 42"></label>
         <button id="btn-confirm-new-game">Start Game</button>
       </div>
     </div>

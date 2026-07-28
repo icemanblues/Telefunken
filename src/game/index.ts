@@ -2,7 +2,7 @@ export type { Suit, CardRank, MeldType, GameState, Contract, StateEvent } from '
 export { Card } from './card.js';
 export { Deck } from './deck.js';
 export { isValidSet, isValidRun } from './validators.js';
-export { sortByRank, sortBySuit } from './utils.js';
+export { sortByRank, sortBySuit, createRng as createSeededRng, parseSeed } from './utils.js';
 export { Meld } from './meld.js';
 export { ActionLogEntry } from './activity-log/entry.js';
 export { ActivityLog } from './activity-log/log-manager.js';
