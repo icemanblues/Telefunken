@@ -556,8 +556,12 @@ export class Game {
     }
   }
 
-  getLeaderboard(): Array<{ rank: number; player: Player; penaltyScore: number; chipBonus: number }> {
-    return scoreboard.getLeaderboard(this.players);
+  getLeaderboard(): Array<{ rank: number; player: Player; penaltyScore: number; chipBonus: number; isActivePlayer: boolean; isDealer: boolean }> {
+    if (this.state === 'gameover') {
+      return scoreboard.getLeaderboard(this.players);
+    }
+    const dealerOffset = this.getDealerOffset();
+    return scoreboard.getLeaderboard(this.players, { dealNum: this.dealNumber, dealerOffset, currentPlayerIdx: this.currentPlayerIndex });
   }
 
   getWinner(): Player | null {

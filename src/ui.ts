@@ -163,17 +163,27 @@ if (typeof window !== 'undefined') {
     
     for (const p of g.players) {
       const tr = document.createElement('tr');
-      const isHumanTurnActive: boolean = g.currentPlayerIndex === 0;
+      const dealerIdx = g.getDealerIndex(g.dealNumber);
+      const isActive = g.currentPlayerIndex === p.id;
+      const isDealer = dealerIdx === p.id;
+      let displayName: string;
+      if (isActive && isDealer) {
+        displayName = '\u25BA [D] ' + p.name;
+      } else if (isActive) {
+        displayName = '\u25BA ' + p.name;
+      } else if (isDealer) {
+        displayName = '[D] ' + p.name;
+      } else {
+        displayName = p.name;
+      }
       const cellValues: string[] = [
-        p.name,
+        displayName,
         p.isHuman ? String(p.handCardCount) : '?',
         String(p.chips),
         String(p.score),
-        g.currentPlayerIndex === p.id
-          ? '\u25B6 ACTIVE'
-          : (p.hand.length === 0 && g.state === 'dealover')
-            ? 'OUT'
-            : '',
+        (p.hand.length === 0 && g.state === 'dealover')
+          ? 'OUT'
+          : '',
       ];
       for (const txt of cellValues) {
         const td = document.createElement('td');
@@ -370,7 +380,7 @@ if (typeof window !== 'undefined') {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const leaderboard: Array<{ rank: number; player: Player; penaltyScore: number; chipBonus: number }> = game!.getLeaderboard();
+    const leaderboard = game!.getLeaderboard();
     
     for (const entry of leaderboard) {
       const tr = document.createElement('tr');
@@ -379,28 +389,38 @@ if (typeof window !== 'undefined') {
       const rankEl: HTMLTableCellElement = _td(String(entry.rank));
       tr.appendChild(rankEl);
       
-      const nameEl: HTMLTableCellElement = _td(entry.player.name);
+      let displayName: string;
+      if (entry.isActivePlayer && entry.isDealer) {
+        displayName = '\u25BA [D] ' + entry.player.name;
+      } else if (entry.isActivePlayer) {
+        displayName = '\u25BA ' + entry.player.name;
+      } else if (entry.isDealer) {
+        displayName = '[D] ' + entry.player.name;
+      } else {
+        displayName = entry.player.name;
+      }
+      const nameEl: HTMLTableCellElement = _td(displayName);
       tr.appendChild(nameEl);
 
       const penaltyEl: HTMLTableCellElement = _td(`${entry.penaltyScore}`);
       tr.appendChild(penaltyEl);
       
-      const chipEl: HTMLTableCellElement = _td(`-${entry.chipBonus}`);
+      const chipEl: HTMLTableCellElement = _td(`+${entry.chipBonus}`);
       tr.appendChild(chipEl);
 
-      const finalScore: number = entry.penaltyScore - entry.chipBonus;
-      const totalEl: HTMLTableCellElement = _td(`${finalScore}`);
+      const finalScore: number = entry.penaltyScore;
+      const totalEl: HTMLTableCellElement = _td(`<span>${finalScore}</span> <small style="color:var(--text-muted)"> (incl. chips)</small>`);
+      totalEl.querySelector('span')!.style.fontWeight = '700';
       tr.appendChild(totalEl);
 
       tbody.appendChild(tr);
     }
 
-    const winnerEntry: { rank: number; player: Player; penaltyScore: number; chipBonus: number } | undefined = leaderboard[0];
+    const winnerEntry = leaderboard[0];
     if (winnerEntry) {
       const winnerTextEl: HTMLElement | null = document.getElementById('winner-text');
       if (winnerTextEl) {
-        const finalScore: number = winnerEntry.penaltyScore + winnerEntry.chipBonus;
-        winnerTextEl.textContent = `${winnerEntry.player.name} wins with ${finalScore} points!`;
+        winnerTextEl.textContent = `${winnerEntry.player.name} wins with ${winnerEntry.penaltyScore} points!`;
       }
     }
 

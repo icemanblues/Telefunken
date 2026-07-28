@@ -21,12 +21,20 @@ export function endGame(players: Player[]): string {
   return sorted[0]?.name ?? 'TBD';
 }
 
-export interface LeaderboardEntry { rank: number; player: Player; penaltyScore: number; chipBonus: number; }
+export interface LeaderboardEntry { rank: number; player: Player; penaltyScore: number; chipBonus: number; isActivePlayer: boolean; isDealer: boolean; }
 
-export function getLeaderboard(players: readonly Player[]): LeaderboardEntry[] {
+export interface LeaderboardOptions { dealNum?: number; dealerOffset: number; currentPlayerIdx?: number; }
+
+export function getLeaderboard(players: readonly Player[], options?: LeaderboardOptions): LeaderboardEntry[] {
   const sorted = [...players].sort((a, b) => a.score - b.score);
+  const dealerIdx = options?.dealNum != null ? (options.dealNum - 1 + options.dealerOffset) % 4 : -1;
   return sorted.map((player, rankIdx) => ({
-    rank: rankIdx + 1, player, penaltyScore: player.score, chipBonus: player.chips * 10,
+    rank: rankIdx + 1,
+    player,
+    penaltyScore: player.score,
+    chipBonus: player.chips * 10,
+    isActivePlayer: options?.currentPlayerIdx != null && player.id === options.currentPlayerIdx,
+    isDealer: dealerIdx >= 0 && player.id === dealerIdx,
   }));
 }
 

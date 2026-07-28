@@ -1267,8 +1267,13 @@ describe('Game Over / Leaderboard', () => {
 
     const lb = g.getLeaderboard();
     expect(lb[0].penaltyScore).toBe(30);
-  });
 
+    // Regression: penaltyScore must equal player.score after endGame (no double-counting of chip deduction)
+    for (const entry of lb) {
+      expect(entry.penaltyScore).toBe(entry.player.score);
+      expect(entry.chipBonus).toBe(entry.player.chips * 10);
+    }
+  });
   test('reset + startGame properly reinitializes game state (Play Again flow)', () => {
     const g = new Game();
     g.startDeal();
