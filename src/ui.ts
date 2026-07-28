@@ -296,7 +296,7 @@ if (typeof window !== 'undefined') {
     if (state === 'dealover' || state === 'gameover') {
       disable(meldControls);
       disable(addMeldControls);
-      if (endTurnBtn) endTurnBtn.disabled = true;
+      disable(endTurnBtn);
       if (state === 'gameover') {
         showToast('Game Over — lowest score wins!');
       } else {
@@ -304,19 +304,19 @@ if (typeof window !== 'undefined') {
       }
     } else if (isHumanTurn && state === 'meld') {
       enable(meldControls);
-      if (endTurnBtn) endTurnBtn.disabled = false;
+      enable(endTurnBtn);
       if (human.hasMelded) enable(addMeldControls);
       else disable(addMeldControls);
     } else if (isHumanTurn && state === 'discard') {
       discardMode = true;
       enable(meldControls);
       disable(addMeldControls);
-      if (endTurnBtn) endTurnBtn.disabled = false;
+      enable(endTurnBtn);
       showToast('Click a card to discard.');
     } else if (state === 'buyDiscard') {
       disable(meldControls);
       disable(addMeldControls);
-      if (endTurnBtn) endTurnBtn.disabled = true;
+      disable(endTurnBtn);
       const promptIdx: number = currentGame.discardBuyerPromptIndex;
       if (promptIdx >= 0 && promptIdx < currentGame.players.length) {
         showToast(`${currentGame.players[promptIdx].name}'s turn to decide.`);
@@ -324,11 +324,11 @@ if (typeof window !== 'undefined') {
     } else if (isHumanTurn && state === 'draw') {
       disable(meldControls);
       disable(addMeldControls);
-      if (endTurnBtn) endTurnBtn.disabled = true;
+      disable(endTurnBtn);
     } else {
       disable(meldControls);
       disable(addMeldControls);
-      if (endTurnBtn) endTurnBtn.disabled = true;
+      disable(endTurnBtn);
       if (!isHumanTurn && !currentGame.isCurrentPlayerAI()) {
         showToast(`${currentGame.players[currentGame.currentPlayerIndex].name}'s turn.`);
       } else if (currentGame.isCurrentPlayerAI()) {
@@ -336,15 +336,20 @@ if (typeof window !== 'undefined') {
       }
     }
 
-    const showBuyBtn: boolean = !(
-      human.hasMelded
-      || human.chips <= 0
-      || currentGame.discardPile.length === 0
-      || state === 'dealover'
-      || state === 'gameover'
-      || state === 'buyDiscard'
+    const enableBuyBtn: boolean = !!(
+      !human.hasMelded
+      && human.chips > 0
+      && currentGame.discardPile.length > 0
+      && state !== 'dealover'
+      && state !== 'gameover'
+      && state !== 'buyDiscard'
+      && isHumanTurn
     );
-    if (btnBuy) btnBuy.style.display = showBuyBtn ? '' : 'none';
+    if (enableBuyBtn) {
+      enable(btnBuy);
+    } else {
+      disable(btnBuy);
+    }
   }
 
   function renderGameOver(): void {
