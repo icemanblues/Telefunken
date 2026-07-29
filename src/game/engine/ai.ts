@@ -28,7 +28,7 @@ export function isConsequencePossible(naturals: readonly Card[], maxWilds: numbe
   return needed <= maxWilds && (naturals.length + Math.min(needed, maxWilds)) >= 3;
 }
 
-export function evaluateMelds(handIds: string[], allCards: Record<string, Card>, dealNumber?: number): Array<AIMeld> {
+export function evaluateMelds(handIds: string[], allCards: Record<string, Card>): Array<AIMeld> {
   const result: Array<AIMeld> = [];
   const naturals = handIds.map(id => allCards[id]).filter(Boolean) as Card[];
 
@@ -156,7 +156,7 @@ export function wantsDiscard(fromPlayerHand: readonly Card[], topCard: Card): bo
   return matchingCards.length >= 2;
 }
 
-export function chooseDrawSource(wantsDiscard: boolean, hasChips: boolean, state: string): 'stock' | 'discard' {
+export function chooseDrawSource(wantsDiscard: boolean, hasChips: boolean): 'stock' | 'discard' {
   if (wantsDiscard && hasChips) return 'discard';
   return 'stock';
 }

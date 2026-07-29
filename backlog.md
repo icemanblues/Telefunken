@@ -1,28 +1,16 @@
 # Agentic
 
-* [ ] Update /init
-  - give it a better understanding and purpose for this project.
-  - give it the architectural thoughts into this
-  - give it how we work, the process and expectations
-  - always write unit tests
-    - always verify that all tests are passing, all linters, all compilation is passing
-    
-  - when stuck, blocked, or unsure, ask me a clarifying question. Always can interview me when there is uncertainity in what to do next
+# Bugs / Issues
 
-* [ ] Skill for commits
-
-* [ ] subagent for reviews
-
-* [ ] subagent for adversarial reviews
-
+* [ ] start game button doesn't dismiss the new game lightbox modal.
+  #bug
+  
+* [ ] game gets stuck with a CPU thinking...
+  #bug
+  
 # Product Features
 
-* [ ] The first dealer is chosen at random
-* [ ] introduce a seed so that a PRNG can be used to repeat the same game.
-
 * [ ] The leaderboard should indicate which player is the dealer.
-
-* [ ] game gets stuck with a CPU thinking...
 
 * [ ] After you have melded, you are no longer allowed to buy cards from the discard pile.
 
@@ -48,8 +36,12 @@
 
 # Technical Features
 
+* [ ] refactor unit tests into multiple files
+
+
 * [ ] add svelte as the UI presentation layer
   - It must be written as a PWA (progressive web app)
+  - and use tailwind css for the styles
 
 * [ ] add playwright for enhanced testing
   - playright can do visual testing that the application is working as intended.
@@ -59,10 +51,14 @@
 * [ ] 2's are also considered wild (jokers) in telefunken
 There are no jokers added to the deck for peruvian telefunken
 
-* Undo button
+* [ ] Undo button
   - do we want to allow the player to undo a play.
     - would be nice in case there is a mouse-slip or something is pressed by accident.
     - however, it can be abused and is effectively a time-travel cheat.
+
+* [ ] Modular design
+  - this way, multiple settings can be tweaked and set to allow the other Telefunken variations to be played.
+  - This will also allow players to make up their own custom house rules and tweaks.
 
 # Completed
 
@@ -120,3 +116,27 @@ Change the diamonds and clubs to use a white background with black text.
 When it was the CPU's turn, I was able to press buy discard and end turn.
 Surprisingly, buy discard worked. End Turn didn't seem to do anything.
 Buy Discard should be removed. There is a buy prompt that goes around.
+
+* [x] The first dealer is chosen at random
+* [x] introduce a seed so that a PRNG can be used to repeat the same game.
+
+
+* [x] Update /init
+  - give it a better understanding and purpose for this project.
+  - give it the architectural thoughts into this
+  - give it how we work, the process and expectations
+  - always write unit tests
+    - always verify that all tests are passing, all linters, all compilation is passing
+    
+  - when stuck, blocked, or unsure, ask me a clarifying question. Always can interview me when there is uncertainity in what to do next
+
+* [x] subagent for reviews
+- this ended up being part of the custom instructions in AGENTS.md
+
+* [x] subagent for adversarial reviews
+
+* [x] index.html has uses an absolute path (leading `/`) to load the assets (css and javascript) and that is causing it not to load.
+  #bug
+
+* [x] pre-existing bugs and typescript compilation errors
+  #bug

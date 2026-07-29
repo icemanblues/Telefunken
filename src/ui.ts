@@ -1,7 +1,6 @@
-import { Card, Deck, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry, ActivityLog } from './game/index.js';
-import type { Suit, CardRank, MeldType, GameState, Contract, StateEvent } from './game/index.js';
+import { Card, Meld, Player, Game, sortByRank, sortBySuit, ActionLogEntry, ActivityLog } from './game/index.js';
+import type { Suit, CardRank, GameState, Contract, StateEvent } from './game/index.js';
 import type { MessagesOut } from './game/types.js';
-import type { ActionEventType } from './game/activity-log/log-manager.js';
 import { CONTRACTS } from './game/index.js';
 
 type CardMap = Record<string, Card>;
@@ -439,9 +438,8 @@ if (typeof window !== 'undefined') {
     return el;
   }
 
-   function initUI(gameInstance: Game): void {
-    let pendingReplaySeed: string | undefined;
-    function showNewGameOverlay(seed?: string): void {
+    function initUI(gameInstance: Game): void {
+     function showNewGameOverlay(seed?: string): void {
       const overlay: HTMLElement | null = document.getElementById('new-game-overlay');
       if (!overlay) return;
       const input: HTMLInputElement | null = document.getElementById('player-name-input') as HTMLInputElement | null;
@@ -675,7 +673,7 @@ if (typeof window !== 'undefined') {
       if (overlay) overlay.style.display = 'none';
     }
 
-    function onStateChanged(event?: StateEvent): void {
+    function onStateChanged(_event?: StateEvent): void {
       renderBoard(gameInstance);
 
       const currentEntries: readonly ActionLogEntry[] = gameInstance.activityLog.entries;

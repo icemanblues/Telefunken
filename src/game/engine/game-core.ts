@@ -1,4 +1,4 @@
-import type { Suit, CardRank, MeldType, GameState, Contract, StateEvent, MessagesOut } from '../types.js';
+import type { MeldType, GameState, StateEvent, MessagesOut } from '../types.js';
 import { Card } from '../card.js';
 import { Deck } from '../deck.js';
 import { Meld } from '../meld.js';
@@ -407,7 +407,7 @@ export class Game {
     if (!player || !player.hand.length) return [];
     
     // Keep backward compat with MeldType typing used in tests
-    return ai.evaluateMelds([...player.hand], this.allCards, this.dealNumber);
+    return ai.evaluateMelds([...player.hand], this.allCards);
   }
 
   forwardRankDistance(a: number, b: number): number {

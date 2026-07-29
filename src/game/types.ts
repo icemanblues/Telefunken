@@ -12,7 +12,7 @@ export interface StateEvent {
 }
 
 export interface MessagesOut {
-  onStateChanged?: (event: StateEvent) => void;
-  onMessage?: (msg: string) => void;
+  onStateChanged?: (_event: StateEvent) => void;
+  onMessage?: (_msg: string) => void;
   delay?: () => void;
 }
