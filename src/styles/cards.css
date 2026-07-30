@@ -1,0 +1,69 @@
+/* Telefunken Peru v1 — Card Visual Styles */
+
+/* ---- Cards ---- */
+.card {
+  width: 66px;
+  height: 92px;
+  border-radius: 6px;
+  background: #fff;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  transition: outline-color .18s ease, transform .16s ease, background .2s ease, box-shadow .2s ease;
+  position: relative;
+}
+
+.card.selected {
+  outline: 3px solid #f5d442;
+  transform: translateY(-4px);
+  box-shadow: 0 0 12px rgba(245,212,66,.55);
+}
+
+.card-red { color: #c0392b; }
+.card-dark-on-white { color: #222; }
+.card-black { color: #fff; background: #474747; }
+.card-joker { color: #9c27b0; }
+
+/* AI face-down cards */
+.card-hidden {
+  cursor: default;
+  border: 1px solid #555;
+}
+.card-hidden::after {
+  content: "\1F0A0";
+  font-size: 1.6rem;
+}
+
+.pile .card {
+  cursor: default;
+}
+
+/* ---- Meld group styling ---- */
+.meld-group {
+  background: #1f3a28;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #4a7a5c;
+}
+
+.meld-owner-label {
+  font-size: 0.75rem;
+  color: #bfc93e;
+  margin-bottom: 0.25rem;
+}
+
+/* ---- Animations ---- */
+.card-enter {
+  animation: slideIn .35s forwards ease-out;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: none; }
+}

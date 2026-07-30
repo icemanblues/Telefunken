@@ -12,8 +12,9 @@
     "rootDir": "./src",
     "noEmit": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["vite/client", "svelte"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*.ts", "src/**/*.svelte"],
   "exclude": ["node_modules", "dist", "tests"]
 }
