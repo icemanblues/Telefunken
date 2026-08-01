@@ -14,7 +14,7 @@ import { createRng, parseSeed } from '../utils.js';
 
 export class Game {
   playerName: string;
-  private readonly _seed: number | null;
+  private _seed: number | null;
   players: Player[];
   deck: Deck | null = null;
   discardPile: string[] = [];
@@ -33,6 +33,21 @@ export class Game {
   
   // Keep _lastAction for backward compatibility - maps to last entry in activityLog
   _lastAction: ActionLogEntry | null = null;
+
+  /** Optional override seed set via handleNewGame / reset. Cleared after startDeal reads it. */
+  get newSeed(): number | string | null { return this._newSeed; }
+
+  set newSeed(value: number | string | null) {
+    if (value !== null && value !== undefined) {
+      const parsed = parseSeed(value);
+      if (parsed !== null && parsed !== undefined) {
+        this._seed = parsed;
+      }
+    }
+    this._newSeed = value ?? null;
+  }
+
+  private _newSeed: number | string | null = null;
 
   constructor(playerName?: string, seed?: string | number | null) {
     this.playerName = playerName || 'Player 1';
@@ -67,15 +82,17 @@ export class Game {
     this.discardBuyerPromptIndex = -1;
     this.activityLog.clear();
     this._lastAction = null;
+    this._cachedDealerOffset = null;
   }
 
   /** Cached dealer offset derived from seed at game construction. */
   private _cachedDealerOffset: number | null = null;
 
-  /** Lazily compute (and cache) the first-dealer offset from the seed. */
+  /** Lazily compute (and cache) the first-dealer offset from the seed. Uses newSeed override when set. */
   private getDealerOffset(): number {
     if (this._cachedDealerOffset === null) {
-      const rng = createRng(this._seed!);
+      const effectiveSeed = this.newSeed !== null ? parseSeed(this.newSeed) : this._seed;
+      const rng = createRng(effectiveSeed!);
       this._cachedDealerOffset = Math.floor(rng() * 4);
     }
     return this._cachedDealerOffset;
@@ -112,7 +129,8 @@ export class Game {
     });
     this.tableMelds = [];
     this.discardPile = [];
-    const rng = createRng((this._seed! + this.dealNumber) | 0);
+    const seedForDeals = (this.newSeed !== null ? parseSeed(this.newSeed) : this._seed)!;
+    const rng = createRng((seedForDeals + this.dealNumber) | 0);
     this.deck = new Deck(rng);
     this.deck.shuffle();
     this.allCards = {};

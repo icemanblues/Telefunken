@@ -41,5 +41,8 @@ export default [
         sourceType: "module",
       },
     },
+    rules: {
+      "svelte/require-each-key": "off",
+    },
   },
 ];
