@@ -30,8 +30,8 @@
 	
 	{#if !collapsed}
 		<div bind:this={listEl} class="overflow-y-auto max-h-[40vh] px-1 space-y-px bg-transparent text-sm" style="--scrollbar-width: 4px;">
-			{#each entries as entry, index}
-				<ActionCard key={(String(entry.timestamp) + '-' + index)} entry={entry} cardClass={getActionClass(entry.action)} />
+			{#each entries as entry, index (index + '-' + entry.timestamp)}
+				<ActionCard {entry} cardClass={getActionClass(entry.action)} />
 			{/each}
 			{#if entries.length === 0}
 				<p class="opacity-30 text-center py-4 text-xs italic">No activity yet</p>
@@ -43,14 +43,7 @@
 <style>
 	button:hover { opacity: 1 !important; color: inherit; }
 	
-	/* Action card class mappings from ui.ts */
-	.action-new      { background: rgba(34, 197, 94, 0.1);   border-left: 3px solid #22c55e; padding-left: 8px; margin-left: -11px; }
-	.action-over     { background: rgba(239, 68, 68, 0.1);    border-left: 3px solid #ef4444; padding-left: 8px; margin-left: -11px; }
-	.action-draw     { background: rgba(59, 130, 246, 0.1);   border-left: 3px solid #3b82f6; padding-left: 8px; margin-left: -11px; }
-	.action-meld     { background: rgba(168, 85, 247, 0.1);   border-left: 3px solid #a855f7; padding-left: 8px; margin-left: -11px; }
-	.action-add      { background: rgba(249, 115, 22, 0.1);   border-left: 3px solid #f97316; padding-left: 8px; margin-left: -11px; }
-	.action-buy      { background: rgba(234, 179, 8, 0.1);    border-left: 3px solid #eab308; padding-left: 8px; margin-left: -11px; }
-	.action-discard  { background: rgba(156, 163, 175, 0.1);  border-left: 3px solid #9ca3af; padding-left: 8px; margin-left: -11px; }
-
-	.action-player   { font-weight: 500; color: #f5d442; }
+	::-webkit-scrollbar { width: var(--scrollbar-width); }
+	::-webkit-scrollbar-track { background: transparent; }
+	::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
 </style>

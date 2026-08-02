@@ -16,4 +16,5 @@ game.messagesOut.onStateChanged = () => {
 const target = document.getElementById('app');
 if (!target) throw new Error('#app element not found in index.html');
 
-mount(App, { target, props: { game } });
+const app = mount(App, { target, props: { game } });
+export default app;

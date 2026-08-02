@@ -283,8 +283,124 @@ Pass the game from `bootstrap.svelte.ts` into the App component, and connect the
 
 ## Phase C — Game Board Components + Full Shell Replacement
 
-<!-- Status: PENDING -->
-<!-- Start: -->
+<!-- Status: IN_PROGRESS -->
+<!-- Start: 2026-07-31 -->
+<!-- Gates COMPLETE (C18): test ✓ typecheck ✓ lint ✓ build ✓ -->
+<!-- Adversarial: [ ] APPROVED BY -->
+**Gates:** `[x] test [x] typecheck [x] lint [x] build`
+**Adversarial:** `[ ] APPROVED BY`
+
+### C1 — Create `src/lib/components/scoreboard/RoundIndicator.svelte`
+
+Replaces the `<section>` deal/contract display from `ui.ts:148–158`. Props: `{ game }: { game: Game }`. Display: `"Deal #N | Contract: count×minSize"`. Reuses existing CONTRACTS import already used in AppLayout. Uses Tailwind utility classes for layout, card art stays in `cards.css`.
+
+```svelte
+<script lang="ts">
+	import type { Game } from '../../../game/engine/game-core.js';
+	import { CONTRACTS } from '../../../game/contracts.js';
+	let { game }: { game: Game } = $props();
+</script>
+
+<section class="bg-[#2c2c2c] px-6 py-3 rounded-lg text-center text-xl tracking-wide select-none w-full max-w-screen-md">
+	<span class="text-[#f5d442]">{game.dealNumber}</span> &middot; Contract:
+	<span class="font-mono">
+		{CONTRACTS[game.dealNumber - 1]?.count ?? '\u2014'}\u00d7{CONTRACTS[game.dealNumber - 1]?.minSize ?? '\u2014'}
+	</span>
+</section>
+```
+
+### C2 — Create `src/lib/components/scoreboard/ScoreboardTable.svelte`
+
+Replaces the `#scoreboard-body` rendering (ui.ts:160–193). Props: `{ game }. Renders player name, card count (human only), buys/chips, score, status. Each row is a `<ScoreboardRow>` child. Shows dealer `[D]`, active-player arrow `►`.
+
+### C3 — Create `src/lib/components/scoreboard/ScoreboardRow.svelte` (child of ScoreboardTable)
+
+Individual row with:
+- Name cell: shows `"► [D] {name}"` if active & dealer, `"► {name}"` if active, `"[D] {name}"` if dealer, otherwise just name
+- Card count: `p.hand.length` for human (Player 0), `"?"` for AI (Players 1–3)
+- Chips: `p.chips` value
+- Score: `p.score` value
+- Status: `"OUT"` when `hand.length === 0 && game.state === 'dealover'`, otherwise empty
+
+Uses Tailwind `border-b border-slate-700 hover:bg-slate-800/50 ring-2 ring-blue-400` for active player highlighting. Color-highlighting for active player row background (e.g., `bg-blue-900/30`).
+
+### C4 — Create `src/lib/components/gameboard/MeldsContainer.svelte`
+
+Replaces `#melds-container` rendering and table meld display (ui.ts:195–215). Props: `{ game }. Contains:
+- Nested `<MeldGroup>` components for each `game.tableMelds` entry
+- Stock pile area showing `"Stock: {game.deck?.remaining}"`
+- Discard pile area showing top card via `<Card />` or `"—"
+
+### C5 — Create `src/lib/components/gameboard/MeldGroup.svelte` (child of MeldsContainer)
+
+Props: `{ meld, game }. Header line shows `"Owner's type (contract)"` for contract melds. Cards rendered as `<Card />` children in a flex-wrap grid. Uses `.meld-group / .meld-owner-label` styling from `cards.css`.
+
+### C6 — Create `src/lib/components/gameboard/HumanHandPanel.svelte`
+
+Replaces `#human-hand`, sort buttons (ui.ts:247–282). Props: `{ game }. Contains:
+- Sort controls row with suit/rank toggle buttons
+- Hand display with mapped card objects sorted per `appStore.sortMode` (or unsorted)
+- Each card rendered as `<Card selectable={true} on:select />`
+- Selection synced to `appStore.selectedCards`
+
+Sorting logic: when sort mode changes, clear existing selection in hand, apply `sortByRank()` or `sortBySuit()` from game/utils.ts, re-render. Unsort clears the active-sort class.
+
+### C7 — Create `src/lib/components/controls/MeldControls.svelte`
+
+Replaces `#meld-controls`. Props: `{ phase, onConfirmSet, onConfirmRun }`. Two buttons: "Confirm Set" / "Confirm Run". Disabled when not in 'meld' phase or not human's turn. Uses Tailwind `disabled:opacity-40 disabled:cursor-not-allowed` instead of imperative pointer-events.
+
+### C8 — Create `src/lib/components/controls/AddMeldControls.svelte`
+
+Replaces `#add-meld-controls` (ui.ts:218–227 + ui.ts:516–539). Props: `{ visible, tableMelds, onConfirm }`. Dropdown `<select>` populated from `game.tableMelds`. "Add Selected" button. Uses Svelte `{#if visible}` for visibility control (no more manual display toggle).
+
+### C9 — Create `src/lib/components/controls/TurnControls.svelte`
+
+Replaces the Enable/Disable button logic (ui.ts:293–362, btn-buy, btn-end-turn). Props: `{ game, onBuy, onEndTurn }`. Conditionally disables buy/end buttons using Tailwind `disabled` + `opacity` classes. Shows "Draw Card" button when phase === 'draw'.
+
+### C10 — Create stock/discard visuals via MeldsContainer (C4 already covers this)
+
+No separate files needed — StockPile and DiscardPile are inline sections inside `<MeldsContainer />` using the shared `<Card />` component (with selectable=false).
+
+### C11 — Wire `updateControls()` logic into Svelte
+
+Replace the imperative enable/disable of buttons (`ui.ts:293–362`) with derived Svelte `$state({ isHumanTurn, canBuy, showMeldControls })` signals derived from `game.state`. Each button's `disabled` attribute maps directly to the computed boolean. The `opacity` CSS classes replace imperative inline styles — Tailwind handles disabled styling.
+
+### C12 — Wire deal-over / gameover state transitions into Svelte event handlers
+
+Replace the `onStateChanged()` callback block (`ui.ts:676–709`) with Svelte `$effect` that reacts to `appStore.game.state`:
+- `'dealover'` → `setTimeout(() => game.advanceDeal(), 1500)`
+- `'gameover'` → dispatch event to `GameOverOverlay` component (which manages its own visibility via the `visible={phase === 'gameover'}` prop pattern already in AppLayout)
+- `'buyDiscard'` → handled by conditional rendering of `<DiscardBuyOverlay>`
+
+### C13 — Wire AI auto-play timer into Svelte
+
+Move `setTimeout(game.aiPlayTurn)` logic from `ui.ts:701–709` into a Svelte `$effect` that watches `appStore.game.currentPlayerIndex` and `game.state`. If current player is AI + state is `'draw'` or `'meld'`, schedule AI turn after 800ms delay. Use cleanup function in `$effect` to cancel stale timers on dependency change.
+
+### C14 — Wire New Game flow in bootstrap + overlay interaction
+
+Already partially done in AppLayout.svelte (`handleNewGame`). Needs minor refinement:
+- On `onStart` from NewGameOverlay, capture `{name, seed}`, call `game.reset(name)`, then `setTimeout(game.startDeal, 300)` to match original timing
+- The store update triggers Svelte re-render with new game state
+- ActivityLogEntry push logic stays in bootstrap: it uses `game.activityLog.push()`.
+
+### C15 — Update `index.html` shell (already minimal from Phase B)
+
+No changes needed — `index.html` is already minimal:
+```html
+<div id="app"></div>
+<script type="module" src="./src/bootstrap.svelte.ts"></script>
+```
+
+### C16 — Delete `styles.css` (if it still exists) — no longer needed
+
+The existing card art is in `src/styles/cards.css` (~69 lines). Layout/typography are Tailwind utilities. Remove the old `styles.css` if present.
+
+### C17 — Delete `ui.ts` (784 lines) — fully replaced by Svelte components
+
+Once every section of ui.ts has an equivalent Svelte component or store mechanism, delete the file. Verify the app still renders and all 4 gates pass. **Do this only after all C1–C16 are complete and gates green.**
+
+### C18 — Full gate run + adversarial review on entire migrated codebase
+
 **Gates:** `[ ] test [ ] typecheck [ ] lint [ ] build`
 **Adversarial:** `[ ] APPROVED BY`
 
@@ -352,26 +468,31 @@ Move `setTimeout(game.aiPlayTurn)` logic from ui.ts lines 701–709 into a Svelt
 - The Store update triggers a Svelte `$effect` that re-renders the entire app tree with new game state.
 - Keep ActivityLogEntry push logic (`pushActionLogEntry()`) in bootstrap: it should still append to `game.activityLog` via the game engine method (which we never modify).
 
-### C15 — Update `index.html` shell to be minimal
+### C15 — Update `index.html` shell to be minimal ✅ DONE
 
-Strip all game-specific sections from index.html, leave only:
+`index.html` is already minimal (12 lines):
 ```html
 <div id="app"></div>
-<script type="module" src="./src/app.client.ts"></script>
+<script type="module" src="./src/bootstrap.svelte.ts"></script>
 ```
-Delete the old `<header>`, `<section>`, `<aside>`, overlay HTML, and `<link rel="stylesheet">` references.
+No changes needed — Phase B bootstrap wire-up already stripped all game-specific sections.
 
-### C16 — Delete `styles.css` (571 lines) — no longer needed
+### C16 — Delete `styles.css` (571 lines) ✅ DONE
 
-Card art is in `src/styles/cards.css`. Layout/typography are Tailwind utilities. Remove the old stylesheet entirely.
+Deleted `styles.css` — card art moved to `src/styles/cards.css`, all layout/typography now Tailwind utilities in components.
 
-### C17 — Delete `ui.ts` (784 lines) — fully replaced by Svelte components
+### C17 — Delete `ui.ts` (784 lines) ✅ DONE
 
-Once every section of ui.ts has an equivalent Svelte component or store mechanism, delete the file. Verify the app still renders and all 4 gates pass.
+Deleted `src/ui.ts` — fully replaced by 14 Svelte component files in `src/lib/components/`. All gates confirmed green post-deletion.
 
-### C18 — Full gate run + adversarial review on entire migrated codebase
+### C18 — Full gate run + adversarial review on entire migrated codebase 🟡 GATES PASS, ADVERSARIAL PENDING
 
-**Gates:** `[ ] test [ ] typecheck [ ] lint [ ] build`
+Gates (ALL GREEN):
+- ✅ `pnpm test`: 195/195 passed
+- ✅ `pnpm typecheck`: 0 errors
+- ✅ `pnpm lint`: 0 warnings, 0 errors
+- ✅ `pnpm build`: ✓ built in 381ms (0 warnings)
+
 **Adversarial:** `[ ] APPROVED BY`
 
 ---

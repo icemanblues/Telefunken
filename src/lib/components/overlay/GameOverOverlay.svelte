@@ -1,36 +1,22 @@
-	<script lang="ts">
-	import type { Game } from '../../../game/index.js';
-	type T = import('../../../game/engine/scoreboard.js').LeaderboardEntry;
+<script lang="ts">
+		import type { Game } from '../../../game/index.js';
 
-	let { 
-		game, 
-		visible = false,
-		onRestart 
-	}: { 
-		game: Game;
-		visible: boolean;
-		onRestart?: () => void;
-	} = $props();
+		let { 
+			game, 
+			visible = false,
+			onRestart 
+		}: { 
+			game: Game;
+			visible: boolean;
+			onRestart?: () => void;
+		} = $props();
 
-	const leaderboard = $derived.by(() => {
-		if (game.state !== 'gameover') return [];
-		
-		const g = game;
-		const sorted = [...g.players].sort((a, b) => a.score - b.score);
-		const dealerIdx = g.getDealerIndex(g.dealNumber);
-		
-		return sorted.map((player, rankIdx) => ({
-			rank: rankIdx + 1,
-			player,
-			penaltyScore: player.score + player.chips * 10,
-			chipBonus: player.chips * 10,
-			total: player.score,
-			isActivePlayer: g.currentPlayerIndex === player.id,
-			isDealer: dealerIdx === player.id,
-		}));
-	});
+		const leaderboard = $derived.by(() => {
+			if (game.state !== 'gameover') return [];
+			return game.getLeaderboard();
+		});
 
-	const winner = $derived(leaderboard.length > 0 ? leaderboard[0] : null);
+		const winner = $derived(leaderboard.length > 0 ? leaderboard[0] : null);
 </script>
 
 {#if visible && leaderboard.length > 0}
@@ -41,7 +27,7 @@
 			
 			{#if winner}
 				<p class="text-center text-lg mb-4">
-					<span class="text-[#f5d442]">🏆 {winner.player.name} wins with {winner.total} points!</span>
+					<span class="text-[#f5d442]">🏆 {winner.player.name} wins with {winner.penaltyScore} points!</span>
 				</p>
 			{/if}
 			
@@ -64,8 +50,7 @@
 								{#if entry.isDealer}<span class="text-xs opacity-50 ml-1">[D]</span>{/if}
 							</td>
 							<td class="py-2 text-right font-mono">{entry.penaltyScore}</td>
-							<td class="py-2 text-right font-mono opacity-60">+{entry.chipBonus}</td>
-							<td class="py-2 text-right font-mono font-bold" style="color: {entry.rank === 1 ? '#f5d442' : 'inherit'}">{entry.total}</td>
+							<td class="py-2 text-right font-mono font-bold" style="color: {entry.rank === 1 ? '#f5d442' : 'inherit'}">{entry.penaltyScore} ({entry.chipBonus})</td>
 						</tr>
 					{/each}
 				</tbody>

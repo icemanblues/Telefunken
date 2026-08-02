@@ -11,8 +11,20 @@
 		defaultSeed?: number | null;
 	} = $props();
 
-	let nameInput = $state(playerName ?? 'Player 1');
-	let seedStr = $state(defaultSeed !== undefined && defaultSeed !== null ? String(defaultSeed) : '');
+	function initialName(): string {
+		let n = playerName ?? 'Player 1';
+		return typeof n === 'string' && n.trim() !== '' ? n : 'Player 1';
+	}
+
+	function initialSeedStr(): string {
+		if (defaultSeed !== undefined && defaultSeed !== null) {
+			return String(defaultSeed);
+		}
+		return '';
+	}
+
+	let nameInput = $state(initialName());
+	let seedStr = $state(initialSeedStr());
 	
 	function validateForm(): { valid: boolean; name: string; seed: string | number | null } {
 		const n = nameInput.trim() || 'Player 1';
